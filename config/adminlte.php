@@ -336,7 +336,7 @@ return [
         ],
         [
             'text' => 'tesisv3',
-            'url' => 'admin/pagesv3',
+            'url' => 'enviar-formulario',
             'icon' => 'far fa-fw fa-file',
             'label' => 4,
             'label_color' => 'success',

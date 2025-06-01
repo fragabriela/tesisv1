@@ -2,6 +2,7 @@
 
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\TesisController;
+use App\Http\Controllers\MiFormularioController;
 /*
 |--------------------------------------------------------------------------
 | Web Routes
@@ -19,4 +20,5 @@ Route::get('/', function () {
 //php artisan make:controller TesisController
 Route::get('admin/pages',[TesisController::class,'index']);
 Route::get('admin/pagesv2',[TesisController::class,'indexv2']);
-Route::post('/enviar-formulario', [MiFormularioController::class, 'guardar'])->name('formulario.guardar');
+Route::get('/enviar-formulario', [MiFormularioController::class, 'index']);
+Route::post('/guardar-formulario', [MiFormularioController::class, 'guardar'])->name('formulario.guardar');
