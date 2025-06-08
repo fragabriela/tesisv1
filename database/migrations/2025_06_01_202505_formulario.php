@@ -19,6 +19,7 @@ return new class extends Migration
             $table->string('password');
             $table->string('direccion');
             $table->string('barrio');
+            $table->integer('telefono');
             $table->timestamps();
         });
     }
