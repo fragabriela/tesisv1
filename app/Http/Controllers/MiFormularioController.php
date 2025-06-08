@@ -29,6 +29,7 @@ class MiFormularioController extends Controller
                         'password' => 'required|string',
                         'direccion' => 'required|string',
                         'barrio' => 'required|string',
+                        'telefono' => 'required|numeric',
                     ]);
 
                     if ($validator->fails()) {
@@ -43,6 +44,7 @@ class MiFormularioController extends Controller
                             "password" => $data["password"],
                             "direccion" => $data["direccion"],
                             "barrio" => $data["barrio"],
+                            "telefono" => $data["telefono"],
                         ]
                     );
 
