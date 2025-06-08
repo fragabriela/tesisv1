@@ -59,6 +59,13 @@
                                 placeholder="Ingrese su barrio">
                         </div>
                     </div>
+                    <div class="col-6">
+                        <div class="mb-3">
+                            <label for="exampleFormControlInput1" class="form-label">Telefono</label>
+                            <input type="number" name="telefono" class="form-control" id="telefono"
+                                placeholder="Ingrese su telefono" pattern="[0-9]{7,15}">
+                        </div>
+                    </div>
 
                     <button class="btn btn-primary" type="submit">Enviar</button>
 
@@ -76,6 +83,7 @@
                                 <th scope="col">email</th>
                                 <th scope="col">direccion</th>
                                 <th scope="col">barrio</th>
+                                <th scope="col">telefono</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -87,6 +95,7 @@
                                         <td>{{ $datos->email  }}</td> 
                                         <td>{{ $datos->direccion }}</td>
                                         <td>{{ $datos->barrio}}</td>
+                                        <td>{{ $datos->telefono}}</td>
                                     </tr>
                             @endforeach
                         </tbody>
