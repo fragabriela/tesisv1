@@ -31,7 +31,6 @@
                                 placeholder="Ingrese su apellido">
                         </div>
                     </div>
-                    <br>
                     <div class="col-6">
                         <div class="mb-3">
                             <label for="exampleFormControlInput1" class="form-label">Email address</label>
@@ -46,12 +45,27 @@
                                 placeholder="Ingrese su contraseña">
                         </div>
                     </div>
+                    <div class="col-6">
+                        <div class="mb-3">
+                            <label for="exampleFormControlInput1" class="form-label">Direccion</label>
+                            <input type="text" name="direccion" class="form-control" id="direccion"
+                                placeholder="Ingrese su direccion">
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div class="mb-3">
+                            <label for="exampleFormControlInput1" class="form-label">Barrio</label>
+                            <input type="text" name="barrio" class="form-control" id="barrio"
+                                placeholder="Ingrese su barrio">
+                        </div>
+                    </div>
 
                     <button class="btn btn-primary" type="submit">Enviar</button>
 
                 </div>
 
                 <div class="col-6">
+
 
                     <table class="table">
                         <thead>
@@ -60,6 +74,8 @@
                                 <th scope="col">nombre</th>
                                 <th scope="col">apellido</th>
                                 <th scope="col">email</th>
+                                <th scope="col">direccion</th>
+                                <th scope="col">barrio</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -68,7 +84,9 @@
                                         <th scope="row">{{ $datos->id  }}</th>
                                         <td>{{ $datos->name  }}</td>
                                         <td>{{ $datos->apellido  }}</td>
-                                        <td>{{ $datos->email  }}</td>
+                                        <td>{{ $datos->email  }}</td> 
+                                        <td>{{ $datos->direccion }}</td>
+                                        <td>{{ $datos->barrio}}</td>
                                     </tr>
                             @endforeach
                         </tbody>
