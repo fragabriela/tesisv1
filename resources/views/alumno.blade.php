@@ -8,6 +8,15 @@
 
 @section('content')
 
+    @if ($errors->any())
+        <div style="color: red;">
+            <ul>
+                @foreach ($errors->all() as $error)
+                    <li>{{ $error }}</li>
+                @endforeach
+            </ul>
+        </div>
+    @endif
     <h1> Alumnos </h1>
     <form action="{{ route('alumno.guardar') }}" method="POST">
         @csrf
@@ -90,10 +99,10 @@
                                 <th scope="col">fecha_nacimiento</th>
                             </tr>
                         </thead>
-                        <tbody>   
-                             @foreach ($data as $datos)
+                        <tbody>
+                            @foreach ($data as $datos)
                                 <tr>
-                                    <th scope="row">{{ $datos->id  }}</th>
+                                    <th scope="row">{{ $datos->id }}</th>
                                     <td>{{ $datos->nombre }}</td>
                                     <td>{{ $datos->email }}</td>
                                     <td>{{ $datos->telefono }}</td>
@@ -104,13 +113,13 @@
                             @endforeach
                         </tbody>
                     </table>
-                </div> 
+                </div>
             </div>
         </div>
     </form>
-</body>
+    </body>
 
-</html>
+    </html>
 
 @endsection
 
