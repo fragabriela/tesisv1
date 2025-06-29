@@ -321,22 +321,16 @@ return [
             'can' => 'manage-blog',
         ],
         [
-            'text' => 'tesis',
-            'url' => 'admin/pages',
+            'text' => 'Carrera',
+            'url' => 'carrera',
             'icon' => 'far fa-fw fa-file',
             'label' => 4,
             'label_color' => 'success',
         ],
-        [
-            'text' => 'tesisv2',
-            'url' => 'admin/pagesv2',
-            'icon' => 'far fa-fw fa-file',
-            'label' => 4,
-            'label_color' => 'success',
-        ],
-        [
-            'text' => 'tesisv3',
-            'url' => 'enviar-formulario',
+
+       [
+            'text' => 'Alumno',
+            'url' => 'alumno',
             'icon' => 'far fa-fw fa-file',
             'label' => 4,
             'label_color' => 'success',
