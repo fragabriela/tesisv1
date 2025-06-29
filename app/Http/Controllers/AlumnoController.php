@@ -17,9 +17,9 @@ class AlumnoController extends Controller
         ->get();
 
 
-         $carreras = \DB::table('carreras')->get(); // Agregamos esto
+        $carreras = \DB::table('carreras')->get(); // Agregamos esto
 
-         return view('alumno', compact('data', 'carreras'));
+        return view('alumno', compact('data', 'carreras'));
     }
 
     public function guardar(Request $request)
@@ -27,7 +27,6 @@ class AlumnoController extends Controller
         try {
 
             $data = $request->all();
-            // return $data;
 
             $validator = Validator::make($request->all(), [
                 'nombre' => 'required|string|max:255',
@@ -46,6 +45,7 @@ class AlumnoController extends Controller
                     ->withInput();
             }
 
+
             $respuesta = \DB::table('alumnos')->insert([
                 "nombre" => $data["nombre"],
                 "email" => $data["email"],
@@ -53,6 +53,7 @@ class AlumnoController extends Controller
                 "cedula" => $data["cedula"],
                 "matricula" => $data["matricula"],
                 "fecha_nacimiento" => $data["fecha_nacimiento"],
+                "id_carrera" => $data["carrera_id"],
                 "id_carrera" => $data["carrera_id"],
             ]);
 
