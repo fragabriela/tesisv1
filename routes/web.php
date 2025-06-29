@@ -30,5 +30,10 @@ Route::get('alumno',[AlumnoController::class,'index']);
 Route::post('/guardar-alumno', [AlumnoController::class, 'guardar'])->name('alumno.guardar');
 Route::get('carrera/delete/{id}',[CarreraController::class,'delete'])->name('carrera.delete');
 Route::get('carrera/update/{id}',[CarreraController::class,'update'])->name('carrera.update');
-Route::post('/editar-carrera', [CarreraController::class, 'editar'])->name('carrera.editar');
+Route::post('/editar-carrera', [CarreraController::class, 'editar'])->name('carrera.editar'); //post: es para enviar datos
+Route::get('alumno/delete/{id}', [AlumnoController::class, 'delete'])->name('alumno.delete');
+Route::get('alumno/update/{id}',[AlumnoController::class,'update'])->name('alumno.update');
+Route::post('/editar-alumno', [AlumnoController::class, 'editar'])->name('alumno.editar');
+
+
     
