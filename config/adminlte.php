@@ -14,9 +14,9 @@ return [
     |
     */
 
-    'title' => 'tesis',
+    'title' => 'SGA',
     'title_prefix' => '',
-    'title_postfix' => '',
+    'title_postfix' => ' | Sistema de Gestión Académica',
 
     /*
     |--------------------------------------------------------------------------
@@ -316,90 +316,117 @@ return [
             'text' => 'search',
         ],
         [
-            'text' => 'blog',
-            'url' => 'admin/blog',
-            'can' => 'manage-blog',
+            'text' => 'Dashboard',
+            'url' => 'dashboard',
+            'icon' => 'fas fa-fw fa-tachometer-alt',
+            'can' => 'ver dashboard',
         ],
+        
+        ['header' => 'GESTIÓN ACADÉMICA'],
         [
-            'text' => 'Carrera',
+            'text' => 'Carreras',
             'url' => 'carrera',
-            'icon' => 'far fa-fw fa-file',
-            'label' => 4,
-            'label_color' => 'success',
+            'route' => 'carrera.index',
+            'icon' => 'fas fa-fw fa-graduation-cap',
+            'can' => 'ver carreras',
         ],
-
-       [
-            'text' => 'Alumno',
+        [
+            'text' => 'Alumnos',
             'url' => 'alumno',
-            'icon' => 'far fa-fw fa-file',
-            'label' => 4,
+            'icon' => 'fas fa-fw fa-user-graduate',
+            'can' => 'ver alumnos',
+        ],
+        [
+            'text' => 'Tutores',
+            'url' => 'tutor',
+            'icon' => 'fas fa-fw fa-chalkboard-teacher',
+            'can' => 'ver tutores',
+        ],
+        [
+            'text' => 'Tesis',
+            'url' => 'tesis',
+            'icon' => 'fas fa-fw fa-book',
+            'can' => 'ver tesis',
+        ],
+        
+        ['header' => 'HERRAMIENTAS DE DESARROLLO', 'can' => 'ver dashboard'],
+        [
+            'text' => 'Monitor de Formularios',
+            'url' => 'debug/form-monitor',
+            'icon' => 'fas fa-fw fa-bug',
+            'can' => 'ver dashboard',
+            'label' => 'NUEVO',
             'label_color' => 'success',
         ],
+        [
+            'text' => 'Diagnóstico DB',
+            'url' => 'debug/database-diagnostic',
+            'icon' => 'fas fa-fw fa-database',
+            'can' => 'ver dashboard',
+        ],
 
-        ['header' => 'account_settings'],
+        ['header' => 'REPORTES'],
         [
-            'text' => 'profile',
-            'url' => 'admin/settings',
-            'icon' => 'fas fa-fw fa-user',
-        ],
-        [
-            'text' => 'change_password',
-            'url' => 'admin/settings',
-            'icon' => 'fas fa-fw fa-lock',
-        ],
-        [
-            'text' => 'multilevel',
-            'icon' => 'fas fa-fw fa-share',
+            'text' => 'Exportar Datos',
+            'icon' => 'fas fa-fw fa-file-export',
             'submenu' => [
                 [
-                    'text' => 'level_one',
-                    'url' => '#',
+                    'text' => 'Carreras PDF',
+                    'url' => 'carrera/export-pdf',
+                    'icon' => 'fas fa-fw fa-file-pdf',
+                    'can' => 'exportar carreras',
                 ],
                 [
-                    'text' => 'level_one',
-                    'url' => '#',
-                    'submenu' => [
-                        [
-                            'text' => 'level_two',
-                            'url' => '#',
-                        ],
-                        [
-                            'text' => 'level_two',
-                            'url' => '#',
-                            'submenu' => [
-                                [
-                                    'text' => 'level_three',
-                                    'url' => '#',
-                                ],
-                                [
-                                    'text' => 'level_three',
-                                    'url' => '#',
-                                ],
-                            ],
-                        ],
-                    ],
+                    'text' => 'Carreras Excel',
+                    'url' => 'carrera/export-excel',
+                    'icon' => 'fas fa-fw fa-file-excel',
+                    'can' => 'exportar carreras',
                 ],
                 [
-                    'text' => 'level_one',
-                    'url' => '#',
+                    'text' => 'Alumnos PDF',
+                    'url' => 'alumno/export-pdf',
+                    'icon' => 'fas fa-fw fa-file-pdf',
+                    'can' => 'exportar alumnos',
+                ],
+                [
+                    'text' => 'Alumnos Excel',
+                    'url' => 'alumno/export-excel',
+                    'icon' => 'fas fa-fw fa-file-excel',
+                    'can' => 'exportar alumnos',
+                ],
+                [
+                    'text' => 'Tutores PDF',
+                    'url' => 'tutor/export-pdf',
+                    'icon' => 'fas fa-fw fa-file-pdf',
+                    'can' => 'exportar tutores',
+                ],
+                [
+                    'text' => 'Tutores Excel',
+                    'url' => 'tutor/export-excel',
+                    'icon' => 'fas fa-fw fa-file-excel',
+                    'can' => 'exportar tutores',
+                ],
+                [
+                    'text' => 'Tesis PDF',
+                    'url' => 'tesis/export-pdf',
+                    'icon' => 'fas fa-fw fa-file-pdf',
+                    'can' => 'exportar tesis',
+                ],
+                [
+                    'text' => 'Tesis Excel',
+                    'url' => 'tesis/export-excel',
+                    'icon' => 'fas fa-fw fa-file-excel',
+                    'can' => 'exportar tesis',
                 ],
             ],
         ],
-        ['header' => 'labels'],
+        
+        ['header' => 'CONFIGURACIÓN'],
         [
-            'text' => 'important',
-            'icon_color' => 'red',
-            'url' => '#',
-        ],
-        [
-            'text' => 'warning',
-            'icon_color' => 'yellow',
-            'url' => '#',
-        ],
-        [
-            'text' => 'information',
-            'icon_color' => 'cyan',
-            'url' => '#',
+            'text' => 'Usuarios',
+            'url' => 'admin/users',
+            'icon' => 'fas fa-fw fa-users',
+            'can' => 'administrar usuarios',
         ],
     ],
 

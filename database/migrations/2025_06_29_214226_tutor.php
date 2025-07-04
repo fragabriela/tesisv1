@@ -11,10 +11,17 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('tutor', function (Blueprint $table) {
+        Schema::create('tutores', function (Blueprint $table) {
             $table->id();
             $table->string('nombre');
+            $table->string('apellido');
+            $table->string('email')->unique();
+            $table->string('telefono');
+            $table->string('especialidad');
+            $table->text('biografia')->nullable();
+            $table->boolean('activo')->default(true);
             $table->timestamps();
+            $table->softDeletes(); // Add soft delete capability
         });
     }
 
@@ -23,6 +30,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('tutor');
+        Schema::dropIfExists('tutores');
     }
 };

@@ -53,7 +53,7 @@ class MiFormularioController extends Controller
                     // Ahora puedes usar $validatedData['nombre'] y $validatedDate['email']
                     return view('tesisv3',compact('data'));
 
-        }catch(\Exception $e){
+        } catch(\Exception $e){
 
             \Log::debug('Ocurrio un error');
         }

@@ -11,11 +11,8 @@ return new class extends Migration
      */
     public function up(): void
     {
-         Schema::create('carreras', function (Blueprint $table) {
-            $table->id();
-            $table->string('nombre');
-            $table->string('descripcion');
-            $table->timestamps();
+        Schema::table('alumnos', function (Blueprint $table) {
+            $table->string('direccion')->nullable()->after('fecha_nacimiento');
         });
     }
 
@@ -24,6 +21,8 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('carreras');
+        Schema::table('alumnos', function (Blueprint $table) {
+            $table->dropColumn('direccion');
+        });
     }
 };

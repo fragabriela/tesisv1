@@ -14,18 +14,16 @@ return new class extends Migration
           Schema::create('alumnos', function (Blueprint $table) {
             $table->id();
             $table->string('nombre');
+            $table->string('apellido');
             $table->string('email')->unique();
             $table->string('telefono');
-            $table->string('cedula');
-            $table->string('matricula');
+            $table->string('cedula')->unique();
+            $table->string('matricula')->unique();
             $table->date('fecha_nacimiento');
-            $table->bigInteger('id_carrera')->unsigned();
-
-            $table->foreign('id_carrera')
-                ->references('id')
-                ->on('carreras');
-                
+            $table->foreignId('id_carrera')->constrained('carreras');
+            $table->enum('estado', ['activo', 'inactivo', 'egresado'])->default('activo');
             $table->timestamps();
+            $table->softDeletes(); // Add soft delete capability
         });
     }
 

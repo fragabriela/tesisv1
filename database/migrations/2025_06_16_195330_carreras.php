@@ -13,19 +13,11 @@ return new class extends Migration
     {
         Schema::create('carreras', function (Blueprint $table) {
             $table->id();
-            $table->string('name');
-            $table->string('apellido');
-            $table->string('email')->unique();
-            $table->string('password');
-            $table->string('direccion');
-            $table->string('barrio');
-            $table->bigInteger('id_carrera')->unsigned();
-
-            $table->foreign('id_carrera')
-                ->references('id')
-                ->on('carreras');
-
+            $table->string('nombre');
+            $table->text('descripcion');
+            $table->boolean('activo')->default(true);
             $table->timestamps();
+            $table->softDeletes(); // Add soft delete capability
         });
     }
 
@@ -34,6 +26,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        //
+        Schema::dropIfExists('carreras');
     }
 };
