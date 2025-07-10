@@ -80,9 +80,8 @@
                                 @switch($tesis->estado)
                                     @case('pendiente')
                                         <span class="badge badge-warning">Pendiente</span>
-                                        @break
-                                    @case('en_progreso')
-                                        <span class="badge badge-info">En progreso</span>
+                                        @break                                    @case('en_progreso')
+                                        <span class="badge badge-info">En Progreso</span>
                                         @break
                                     @case('completado')
                                         <span class="badge badge-success">Completado</span>

@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Alumno;
 use App\Models\Tesis;
 use App\Models\Tutor;
+use App\Services\DockerService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
@@ -14,6 +15,16 @@ use Maatwebsite\Excel\Facades\Excel;
 
 class TesisController extends Controller
 {
+    protected $dockerService;
+    
+    /**
+     * Constructor
+     */
+    public function __construct(DockerService $dockerService)
+    {
+        $this->dockerService = $dockerService;
+    }
+    
     /**
      * Display a listing of the resource.
      */
@@ -128,6 +139,16 @@ class TesisController extends Controller
     public function show(string $id)
     {
         $tesis = Tesis::with(['alumno', 'tutor'])->findOrFail($id);
+        
+        // Verificar el estado del contenedor si existe
+        if (!empty($tesis->container_id)) {
+            $containerStatus = $this->dockerService->getContainerStatus($tesis->container_id);
+            if ($containerStatus && $containerStatus != $tesis->container_status) {
+                $tesis->container_status = $containerStatus;
+                $tesis->save();
+            }
+        }
+        
         return view('tesis.show', compact('tesis'));
     }
 

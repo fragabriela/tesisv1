@@ -17,6 +17,9 @@ class Kernel extends ConsoleKernel
         // Run update monitors daily
         $schedule->command('monitor:alumno-updates')->dailyAt('01:00');
         $schedule->command('monitor:tutor-updates')->dailyAt('01:30');
+        
+        // Clean up inactive containers weekly
+        $schedule->command('docker:cleanup')->weekly()->sundays()->at('02:00');
     }
 
     /**

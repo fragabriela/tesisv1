@@ -18,6 +18,8 @@ class DatabaseSeeder extends Seeder
             TutorSeeder::class,
             AlumnoSeeder::class,
             TesisSeeder::class,
+            ProyectosPermissionSeeder::class,
+            FixEstadoValuesSeeder::class,
         ]);
     }
 }

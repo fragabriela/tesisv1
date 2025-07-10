@@ -17,3 +17,12 @@ use Illuminate\Support\Facades\Route;
 Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
     return $request->user();
 });
+
+Route::middleware('auth:sanctum')->group(function () {
+    // Rutas de API para tesis y proyectos
+    Route::prefix('tesis')->group(function () {
+        Route::get('/', [\App\Http\Controllers\Api\TesisApiController::class, 'index']);
+        Route::get('/{id}', [\App\Http\Controllers\Api\TesisApiController::class, 'show']);
+        Route::post('/{id}/project', [\App\Http\Controllers\Api\TesisApiController::class, 'manageProject']);
+    });
+});

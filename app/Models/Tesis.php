@@ -22,7 +22,16 @@ class Tesis extends Model
         'estado',
         'calificacion',
         'observaciones',
-        'documento_url'
+        'documento_url',
+        'github_repo',
+        'project_type',
+        'container_id',
+        'container_status',
+        'project_url',
+        'project_config',
+        'last_deployed',
+        'is_visible',
+        'project_repo_path'
     ];
 
     protected $dates = [
@@ -30,7 +39,13 @@ class Tesis extends Model
         'fecha_fin',
         'created_at',
         'updated_at',
-        'deleted_at'
+        'deleted_at',
+        'last_deployed'
+    ];
+    
+    protected $casts = [
+        'project_config' => 'array',
+        'is_visible' => 'boolean',
     ];
 
     /**

@@ -175,4 +175,113 @@
             </div>
         </div>
     </div>
+    
+    <!-- Project/GitHub Integration -->
+    <div class="row mt-4">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">Proyecto GitHub</h3>
+                </div>
+                <div class="card-body">
+                    @if(!empty($tesis->github_repo))
+                        <div class="row">
+                            <div class="col-md-6">
+                                <dl>
+                                    <dt>Repositorio GitHub</dt>
+                                    <dd>
+                                        <a href="{{ $tesis->github_repo }}" target="_blank">
+                                            {{ $tesis->github_repo }} <i class="fas fa-external-link-alt"></i>
+                                        </a>
+                                    </dd>
+                                    
+                                    @if(!empty($tesis->project_type))
+                                        <dt>Tipo de Proyecto</dt>
+                                        <dd>{{ ucfirst($tesis->project_type) }}</dd>
+                                    @endif
+                                    
+                                    @if(!empty($tesis->container_status))
+                                        <dt>Estado del Contenedor</dt>
+                                        <dd>
+                                            @php
+                                                $containerBadgeClass = '';
+                                                switch($tesis->container_status) {
+                                                    case 'running': $containerBadgeClass = 'success'; break;
+                                                    case 'stopped': $containerBadgeClass = 'danger'; break;
+                                                    default: $containerBadgeClass = 'secondary'; break;
+                                                }
+                                            @endphp
+                                            <span class="badge badge-{{ $containerBadgeClass }}">
+                                                {{ ucfirst($tesis->container_status) }}
+                                            </span>
+                                        </dd>
+                                        
+                                        <dt>Última Actualización</dt>
+                                        <dd>{{ $tesis->last_deployed ? $tesis->last_deployed->format('d/m/Y H:i:s') : 'Nunca' }}</dd>
+                                    @endif
+                                </dl>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="text-center mb-4">
+                                    @if(empty($tesis->container_id))
+                                        <div class="alert alert-info">
+                                            <i class="icon fas fa-info-circle"></i>
+                                            Este proyecto aún no ha sido desplegado.
+                                        </div>
+                                    @elseif($tesis->container_status === 'running')
+                                        <div class="alert alert-success">
+                                            <i class="icon fas fa-check"></i>
+                                            El proyecto está en ejecución y accesible.
+                                        </div>
+                                    @else
+                                        <div class="alert alert-warning">
+                                            <i class="icon fas fa-exclamation-triangle"></i>
+                                            El proyecto está detenido o en un estado no disponible.
+                                        </div>
+                                    @endif
+                                    
+                                    @if(!empty($tesis->project_url) && $tesis->container_status === 'running')
+                                        <a href="{{ $tesis->project_url }}" target="_blank" class="btn btn-success mb-2">
+                                            <i class="fas fa-external-link-alt"></i> Acceder al Proyecto
+                                        </a>
+                                    @endif
+                                    
+                                    <div class="btn-group-vertical w-100">
+                                        @if(empty($tesis->github_repo))
+                                            <a href="{{ route('proyectos.github-config', $tesis->id) }}" class="btn btn-primary mb-2">
+                                                <i class="fab fa-github"></i> Configurar Repositorio GitHub
+                                            </a>
+                                        @elseif(empty($tesis->project_type))
+                                            <a href="{{ route('proyectos.setup', $tesis->id) }}" class="btn btn-primary mb-2">
+                                                <i class="fas fa-cogs"></i> Configurar Proyecto
+                                            </a>
+                                        @elseif(empty($tesis->container_id))
+                                            <a href="{{ route('proyectos.deploy', $tesis->id) }}" class="btn btn-primary mb-2">
+                                                <i class="fas fa-rocket"></i> Desplegar Proyecto
+                                            </a>
+                                        @else
+                                            <a href="{{ route('proyectos.show', $tesis->id) }}" class="btn btn-primary mb-2">
+                                                <i class="fas fa-desktop"></i> Gestionar Proyecto
+                                            </a>
+                                        @endif
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    @else
+                        <div class="text-center">
+                            <div class="mb-3">
+                                <i class="fab fa-github fa-4x text-secondary mb-3"></i>
+                                <h4>No hay repositorio GitHub configurado</h4>
+                                <p>Configura un repositorio GitHub para desplegar y ejecutar el proyecto de tesis.</p>
+                            </div>
+                            <a href="{{ route('proyectos.github-config', $tesis->id) }}" class="btn btn-primary">
+                                <i class="fab fa-github"></i> Configurar Repositorio GitHub
+                            </a>
+                        </div>
+                    @endif
+                </div>
+            </div>
+        </div>
+    </div>
 @stop
