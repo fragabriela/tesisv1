@@ -126,8 +126,20 @@ class AlumnoSeeder extends Seeder
 
         foreach ($alumnos as $alumno) {
             // Assign a random carrera to each alumno
-            $alumno['id_carrera'] = $carreras->random()->id;
-            Alumno::create($alumno);
+            $carreraId = $carreras->random()->id;
+            Alumno::firstOrCreate(
+                ['email' => $alumno['email']],
+                [
+                    'nombre' => $alumno['nombre'],
+                    'apellido' => $alumno['apellido'],
+                    'telefono' => $alumno['telefono'],
+                    'cedula' => $alumno['cedula'],
+                    'matricula' => $alumno['matricula'],
+                    'fecha_nacimiento' => $alumno['fecha_nacimiento'],
+                    'estado' => $alumno['estado'],
+                    'id_carrera' => $carreraId,
+                ]
+            );
         }
     }
 }

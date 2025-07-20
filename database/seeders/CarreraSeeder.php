@@ -56,7 +56,13 @@ class CarreraSeeder extends Seeder
         ];
 
         foreach ($carreras as $carrera) {
-            Carrera::create($carrera);
+            Carrera::firstOrCreate(
+                ['nombre' => $carrera['nombre']],
+                [
+                    'descripcion' => $carrera['descripcion'],
+                    'activo' => $carrera['activo'],
+                ]
+            );
         }
     }
 }

@@ -585,4 +585,27 @@ class ProyectoController extends Controller
             ]);
         }
     }
+    
+    /**
+     * Proxy para acceder a los proyectos desplegados
+     *
+     * @param int $id ID del proyecto/tesis
+     * @param string $path Path opcional para la URL interna del proyecto
+     * @return \Illuminate\Http\Response
+     */
+    public function proxy($id, $path = '')
+    {
+        $tesis = Tesis::findOrFail($id);
+        
+        // Verificar que el proyecto tenga un contenedor en ejecución
+        if (empty($tesis->container_id) || $tesis->container_status !== 'running') {
+            return redirect()->route('proyectos.deploy', $id)
+                ->with('error', 'El proyecto no está en ejecución actualmente');
+        }
+        
+        // La redirección real se maneja por el middleware ProjectProxyMiddleware
+        // Este método solo se llama para resolver la ruta y validar el proyecto
+        
+        return response()->make('Redireccionando...', 200);
+    }
 }

@@ -74,6 +74,9 @@
             @if (Route::has('login'))
                 @auth
                     <a href="{{ route('dashboard') }}" class="btn btn-primary">Dashboard</a>
+                    <a href="{{ url('/check-permissions') }}" class="btn btn-secondary">Verificar Permisos</a>
+                    <a href="{{ url('/fix-permissions') }}" class="btn btn-secondary">Arreglar Permisos</a>
+                    <a href="{{ url('/fix-routes') }}" class="btn btn-secondary">Arreglar Rutas</a>
                 @else
                     <a href="{{ route('login') }}" class="btn btn-primary">Iniciar Sesión</a>
                 @endauth

@@ -40,12 +40,12 @@ class Tesis extends Model
         'created_at',
         'updated_at',
         'deleted_at',
-        'last_deployed'
     ];
     
     protected $casts = [
         'project_config' => 'array',
         'is_visible' => 'boolean',
+        'last_deployed' => 'datetime',
     ];
 
     /**

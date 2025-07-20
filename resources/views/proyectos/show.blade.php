@@ -248,7 +248,15 @@
                                     <span class="badge badge-success float-right">Éxito</span>
                                 </a>
                                 <span class="product-description">
-                                    {{ $tesis->last_deployed ? $tesis->last_deployed->format('d/m/Y H:i:s') : 'Fecha desconocida' }}
+                                    @if($tesis->last_deployed)
+                                        @if(is_string($tesis->last_deployed))
+                                            {{ \Carbon\Carbon::parse($tesis->last_deployed)->format('d/m/Y H:i:s') }}
+                                        @else
+                                            {{ $tesis->last_deployed->format('d/m/Y H:i:s') }}
+                                        @endif
+                                    @else
+                                        Fecha desconocida
+                                    @endif
                                 </span>
                             </div>
                         </li>
@@ -258,7 +266,15 @@
                                     <span class="badge badge-success float-right">Éxito</span>
                                 </a>
                                 <span class="product-description">
-                                    {{ $tesis->last_deployed ? $tesis->last_deployed->subMinutes(2)->format('d/m/Y H:i:s') : 'Fecha desconocida' }}
+                                    @if($tesis->last_deployed)
+                                        @if(is_string($tesis->last_deployed))
+                                            {{ \Carbon\Carbon::parse($tesis->last_deployed)->subMinutes(2)->format('d/m/Y H:i:s') }}
+                                        @else
+                                            {{ $tesis->last_deployed->subMinutes(2)->format('d/m/Y H:i:s') }}
+                                        @endif
+                                    @else
+                                        Fecha desconocida
+                                    @endif
                                 </span>
                             </div>
                         </li>
@@ -268,7 +284,15 @@
                                     <span class="badge badge-success float-right">Éxito</span>
                                 </a>
                                 <span class="product-description">
-                                    {{ $tesis->last_deployed ? $tesis->last_deployed->subMinutes(5)->format('d/m/Y H:i:s') : 'Fecha desconocida' }}
+                                    @if($tesis->last_deployed)
+                                        @if(is_string($tesis->last_deployed))
+                                            {{ \Carbon\Carbon::parse($tesis->last_deployed)->subMinutes(5)->format('d/m/Y H:i:s') }}
+                                        @else
+                                            {{ $tesis->last_deployed->subMinutes(5)->format('d/m/Y H:i:s') }}
+                                        @endif
+                                    @else
+                                        Fecha desconocida
+                                    @endif
                                 </span>
                             </div>
                         </li>

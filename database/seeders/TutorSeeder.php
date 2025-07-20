@@ -70,7 +70,17 @@ class TutorSeeder extends Seeder
         ];
 
         foreach ($tutores as $tutor) {
-            Tutor::create($tutor);
+            Tutor::firstOrCreate(
+                ['email' => $tutor['email']],
+                [
+                    'nombre' => $tutor['nombre'],
+                    'apellido' => $tutor['apellido'],
+                    'telefono' => $tutor['telefono'],
+                    'especialidad' => $tutor['especialidad'],
+                    'biografia' => $tutor['biografia'],
+                    'activo' => $tutor['activo'],
+                ]
+            );
         }
     }
 }

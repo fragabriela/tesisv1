@@ -8,6 +8,13 @@ Route::middleware(['auth'])->prefix('proyectos')->name('proyectos.')->group(func
     // Listado principal de proyectos
     Route::get('/', [ProyectoController::class, 'index'])->name('index')->middleware('permission:ver proyectos');
     
+    // Crear nuevo proyecto
+    Route::get('/create', [ProyectoController::class, 'create'])->name('create')->middleware('permission:crear proyectos');
+    Route::post('/', [ProyectoController::class, 'store'])->name('store')->middleware('permission:crear proyectos');
+    
+    // Verificar URL de GitHub
+    Route::post('/check-github-url', [ProyectoController::class, 'checkGitHubUrl'])->name('check-github-url');
+    
     // Configuración de GitHub
     Route::get('/{id}/github-config', [ProyectoController::class, 'showGitHubConfig'])->name('github-config')->middleware('permission:configurar proyectos');
     Route::post('/{id}/github-config', [ProyectoController::class, 'saveGitHubConfig'])->name('save-github-config')->middleware('permission:configurar proyectos');
@@ -26,6 +33,11 @@ Route::middleware(['auth'])->prefix('proyectos')->name('proyectos.')->group(func
     Route::post('/{id}/stop', [ProyectoController::class, 'stop'])->name('stop')->middleware('permission:gestionar proyectos');
     Route::post('/{id}/restart', [ProyectoController::class, 'restart'])->name('restart')->middleware('permission:gestionar proyectos');
     
+    // Docker diagnóstico y guía de instalación
+    Route::get('/docker-troubleshoot', [ProyectoController::class, 'dockerTroubleshoot'])->name('docker-troubleshoot')->middleware('permission:gestionar proyectos');
+    Route::get('/docker-install', [ProyectoController::class, 'dockerInstallGuide'])->name('docker-install')->middleware('permission:gestionar proyectos');
+    Route::get('/docker-auto-install', [ProyectoController::class, 'dockerAutoInstall'])->name('docker-auto-install')->middleware('permission:gestionar proyectos');
+    
     // Monitoring
     Route::get('/monitor', [ProyectoController::class, 'monitor'])->name('monitor')->middleware('permission:monitorear proyectos');
     
@@ -35,11 +47,9 @@ Route::middleware(['auth'])->prefix('proyectos')->name('proyectos.')->group(func
 
 // Rutas para acceder a los proyectos desplegados
 Route::middleware(['project.proxy'])->group(function () {
-    Route::get('projects/{id}', function ($id) {
-        // Esta ruta será interceptada por el middleware ProjectProxyMiddleware
-    })->where('id', '[0-9]+')->middleware('permission:ver proyectos');
+    Route::get('projects/{id}', [ProyectoController::class, 'proxy'])->name('proyectos.proxy')
+         ->where('id', '[0-9]+')->middleware('permission:ver proyectos');
     
-    Route::get('projects/{id}/{path}', function ($id, $path) {
-        // Esta ruta será interceptada por el middleware ProjectProxyMiddleware
-    })->where('id', '[0-9]+')->where('path', '.*')->middleware('permission:ver proyectos');
+    Route::get('projects/{id}/{path}', [ProyectoController::class, 'proxy'])
+         ->where('id', '[0-9]+')->where('path', '.*')->middleware('permission:ver proyectos');
 });

@@ -53,17 +53,17 @@ class UserSeeder extends Seeder
         ];
 
         foreach ($permissions as $permission) {
-            Permission::create(['name' => $permission]);
+            Permission::firstOrCreate(['name' => $permission]);
         }
 
         // Create roles and assign permissions
         // Admin
-        $adminRole = Role::create(['name' => 'administrador']);
-        $adminRole->givePermissionTo(Permission::all());
+        $adminRole = Role::firstOrCreate(['name' => 'administrador']);
+        $adminRole->syncPermissions(Permission::all());
 
         // Coordinador
-        $coordinadorRole = Role::create(['name' => 'coordinador']);
-        $coordinadorRole->givePermissionTo([
+        $coordinadorRole = Role::firstOrCreate(['name' => 'coordinador']);
+        $coordinadorRole->syncPermissions([
             'ver dashboard',
             'ver alumnos',
             'crear alumnos',
@@ -82,8 +82,8 @@ class UserSeeder extends Seeder
         ]);
 
         // Tutor
-        $tutorRole = Role::create(['name' => 'tutor']);
-        $tutorRole->givePermissionTo([
+        $tutorRole = Role::firstOrCreate(['name' => 'tutor']);
+        $tutorRole->syncPermissions([
             'ver dashboard',
             'ver alumnos',
             'ver tesis',
@@ -91,27 +91,33 @@ class UserSeeder extends Seeder
         ]);
 
         // Create admin user
-        $admin = User::create([
-            'name' => 'Administrador',
-            'email' => 'admin@example.com',
-            'password' => Hash::make('password'),
-        ]);
+        $admin = User::firstOrCreate(
+            ['email' => 'admin@example.com'],
+            [
+                'name' => 'Administrador',
+                'password' => Hash::make('password'),
+            ]
+        );
         $admin->assignRole($adminRole);
 
         // Create coordinador user
-        $coordinador = User::create([
-            'name' => 'Coordinador',
-            'email' => 'coordinador@example.com',
-            'password' => Hash::make('password'),
-        ]);
+        $coordinador = User::firstOrCreate(
+            ['email' => 'coordinador@example.com'],
+            [
+                'name' => 'Coordinador',
+                'password' => Hash::make('password'),
+            ]
+        );
         $coordinador->assignRole($coordinadorRole);
 
         // Create tutor user
-        $tutor = User::create([
-            'name' => 'Tutor',
-            'email' => 'tutor@example.com',
-            'password' => Hash::make('password'),
-        ]);
+        $tutor = User::firstOrCreate(
+            ['email' => 'tutor@example.com'],
+            [
+                'name' => 'Tutor',
+                'password' => Hash::make('password'),
+            ]
+        );
         $tutor->assignRole($tutorRole);
     }
 }
