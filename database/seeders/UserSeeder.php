@@ -50,6 +50,16 @@ class UserSeeder extends Seeder
             'editar tesis',
             'eliminar tesis',
             'exportar tesis',
+            
+            // Proyectos
+            'ver proyectos',
+            'crear proyectos',
+            'editar proyectos',
+            'eliminar proyectos',
+            'monitorear proyectos',
+            'configurar proyectos',
+            'desplegar proyectos',
+            'exportar proyectos',
         ];
 
         foreach ($permissions as $permission) {
@@ -79,6 +89,10 @@ class UserSeeder extends Seeder
             'crear tesis',
             'editar tesis',
             'exportar tesis',
+            'ver proyectos',
+            'crear proyectos',
+            'monitorear proyectos',
+            'exportar proyectos',
         ]);
 
         // Tutor
@@ -88,6 +102,7 @@ class UserSeeder extends Seeder
             'ver alumnos',
             'ver tesis',
             'editar tesis',
+            'ver proyectos',
         ]);
 
         // Create admin user
