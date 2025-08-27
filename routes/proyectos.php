@@ -2,6 +2,7 @@
 
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\ProyectoController;
+use App\Http\Controllers\ProjectBackupController;
 
 // Rutas para la gestión de proyectos
 Route::middleware(['auth'])->prefix('proyectos')->name('proyectos.')->group(function () {
@@ -24,14 +25,27 @@ Route::middleware(['auth'])->prefix('proyectos')->name('proyectos.')->group(func
     Route::post('/{id}/clone', [ProyectoController::class, 'cloneAndDetect'])->name('clone')->middleware('permission:configurar proyectos');
     
     // Despliegue del proyecto
-    Route::get('/{id}/deploy', [ProyectoController::class, 'showDeploy'])->name('deploy')->middleware('permission:desplegar proyectos');
-    Route::post('/{id}/deploy', [ProyectoController::class, 'deploy'])->name('do-deploy')->middleware('permission:desplegar proyectos');
+    Route::get('/{id}/deploy', [ProyectoController::class, 'showDeploy'])->name('deploy');
+    Route::post('/{id}/deploy', [ProyectoController::class, 'deploy'])->name('do-deploy');
     
     // Gestión del proyecto
     Route::get('/{id}', [ProyectoController::class, 'show'])->name('show')->middleware('permission:ver proyectos');
     Route::get('/{id}/logs', [ProyectoController::class, 'logs'])->name('logs')->middleware('permission:ver proyectos');
     Route::post('/{id}/stop', [ProyectoController::class, 'stop'])->name('stop')->middleware('permission:gestionar proyectos');
     Route::post('/{id}/restart', [ProyectoController::class, 'restart'])->name('restart')->middleware('permission:gestionar proyectos');
+    
+    // 🗄️ GESTIÓN DE BACKUPS
+    Route::prefix('/{tesis}/backups')->name('backups.')->group(function () {
+        Route::get('/', [ProjectBackupController::class, 'index'])->name('index')->middleware('permission:ver proyectos');
+        Route::post('/', [ProjectBackupController::class, 'store'])->name('store')->middleware('permission:crear proyectos');
+        Route::get('/{backup}', [ProjectBackupController::class, 'show'])->name('show')->middleware('permission:ver proyectos');
+        Route::get('/{backup}/download', [ProjectBackupController::class, 'download'])->name('download')->middleware('permission:ver proyectos');
+        Route::post('/{backup}/restore', [ProjectBackupController::class, 'restore'])->name('restore')->middleware('permission:desplegar proyectos');
+        Route::delete('/{backup}', [ProjectBackupController::class, 'destroy'])->name('destroy')->middleware('permission:eliminar proyectos');
+        
+        // Backup automático para despliegue
+        Route::post('/create-for-deployment', [ProjectBackupController::class, 'createForDeployment'])->name('create-for-deployment')->middleware('permission:desplegar proyectos');
+    });
     
     // Docker diagnóstico y guía de instalación
     Route::get('/docker-troubleshoot', [ProyectoController::class, 'dockerTroubleshoot'])->name('docker-troubleshoot')->middleware('permission:gestionar proyectos');

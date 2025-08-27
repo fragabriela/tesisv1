@@ -131,7 +131,7 @@
                             </form>
                         </div>
                     @else
-                        <form action="{{ route('proyectos.do-deploy', $tesis->id) }}" method="POST">
+                        <form action="{{ route('proyectos.do-deploy', $tesis->id) }}" method="POST" enctype="multipart/form-data">
                             @csrf
                             <p>El siguiente paso es desplegar el proyecto en un contenedor Docker.</p>
                             <p>Al hacer clic en el botón, el sistema:</p>
@@ -146,6 +146,134 @@
                                 <h5><i class="icon fas fa-exclamation-triangle"></i> Importante</h5>
                                 <p>Este proceso puede tardar varios minutos dependiendo de la complejidad del proyecto y las dependencias que requiera.</p>
                                 <p>Por favor, no cierre esta ventana durante el proceso de despliegue.</p>
+                            </div>
+                            
+                            <!-- Panel de Backups -->
+                            <div class="card card-info mb-3">
+                                <div class="card-header">
+                                    <h5 class="card-title mb-0">
+                                        <i class="fas fa-archive"></i> Restaurar desde Backup (Opcional)
+                                    </h5>
+                                </div>
+                                <div class="card-body">
+                                    <p class="text-muted">Puedes cargar un archivo de backup para restaurar el proyecto después del despliegue.</p>
+                                    
+                                    <div class="alert alert-info">
+                                        <strong>Tipos de archivo soportados:</strong>
+                                        <ul class="mb-0 mt-1">
+                                            <li><strong>.zip, .tar, .tar.gz:</strong> Backup completo (archivos + base de datos)</li>
+                                            <li><strong>.sql:</strong> Solo base de datos (restauración rápida)</li>
+                                        </ul>
+                                    </div>
+                                    
+                                    <div class="row">
+                                        <div class="col-md-8">
+                                            <div class="form-group">
+                                                <label for="backup_file">Cargar archivo de backup:</label>
+                                                <div class="input-group">
+                                                    <div class="custom-file">
+                                                        <input type="file" class="custom-file-input" id="backup_file" name="backup_file" 
+                                                               accept=".zip,.tar.gz,.tar,.sql" onchange="handleBackupFile(this)">
+                                                        <label class="custom-file-label" for="backup_file" id="backup_file_label">
+                                                            Seleccionar archivo de backup (.zip, .sql)
+                                                        </label>
+                                                    </div>
+                                                    <div class="input-group-append">
+                                                        <button class="btn btn-outline-secondary" type="button" id="clear_backup" 
+                                                                onclick="clearBackupFile()" style="display: none;">
+                                                            <i class="fas fa-times"></i>
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                                <small class="form-text text-muted">
+                                                    Formatos soportados: .zip, .tar.gz, .tar, .sql (máximo 100MB)
+                                                </small>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <div class="form-group">
+                                                <label for="backup_description">Descripción (opcional):</label>
+                                                <input type="text" class="form-control" id="backup_description" name="backup_description" 
+                                                       placeholder="Ej: Backup v1.2.0" maxlength="255">
+                                                <small class="form-text text-muted">
+                                                    Para identificar este backup
+                                                </small>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Información del archivo seleccionado -->
+                                    <div id="backup-file-info" class="alert alert-light d-none">
+                                        <div class="row">
+                                            <div class="col-md-8">
+                                                <strong>Archivo:</strong> <span id="file-name">-</span><br>
+                                                <strong>Tamaño:</strong> <span id="file-size">-</span><br>
+                                                <strong>Tipo:</strong> <span id="file-type">-</span>
+                                            </div>
+                                            <div class="col-md-4">
+                                                <div class="text-center">
+                                                    <i class="fas fa-file-archive fa-3x text-info"></i>
+                                                    <br>
+                                                    <span class="badge badge-success">Archivo listo</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Alternativa: usar backups existentes -->
+                                    @if($tesis->backups()->count() > 0)
+                                        <div class="mt-3">
+                                            <button type="button" class="btn btn-outline-info btn-sm" data-toggle="collapse" 
+                                                    data-target="#existing-backups" aria-expanded="false">
+                                                <i class="fas fa-list"></i> O usar backup existente ({{ $tesis->backups()->count() }} disponibles)
+                                            </button>
+                                            
+                                            <div class="collapse mt-2" id="existing-backups">
+                                                <div class="form-group">
+                                                    <label for="existing_backup_id">Backups existentes:</label>
+                                                    <select class="form-control" name="existing_backup_id" id="existing_backup_id">
+                                                        <option value="">-- Seleccionar backup existente --</option>
+                                                        @foreach($tesis->backups()->orderBy('created_at', 'desc')->get() as $backup)
+                                                            <option value="{{ $backup->id }}" data-description="{{ $backup->description }}" 
+                                                                    data-type="{{ $backup->type }}" data-date="{{ $backup->created_at->format('d/m/Y H:i') }}"
+                                                                    data-size="{{ $backup->file_size }}" data-version="{{ $backup->version }}">
+                                                                {{ $backup->description ?? 'Backup sin descripción' }} 
+                                                                ({{ $backup->created_at->format('d/m/Y H:i') }})
+                                                                @if($backup->version) - v{{ $backup->version }} @endif
+                                                            </option>
+                                                        @endforeach
+                                                    </select>
+                                                    <small class="form-text text-muted">
+                                                        Si seleccionas un backup existente, se ignorará el archivo subido.
+                                                    </small>
+                                                </div>
+                                                
+                                                <div id="existing-backup-info" class="alert alert-light d-none">
+                                                    <div class="row">
+                                                        <div class="col-md-8">
+                                                            <strong>Descripción:</strong> <span id="existing-backup-description">-</span><br>
+                                                            <strong>Tipo:</strong> <span id="existing-backup-type">-</span><br>
+                                                            <strong>Fecha:</strong> <span id="existing-backup-date">-</span>
+                                                        </div>
+                                                        <div class="col-md-4">
+                                                            <strong>Tamaño:</strong> <span id="existing-backup-size">-</span><br>
+                                                            <strong>Versión:</strong> <span id="existing-backup-version">-</span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    @endif
+                                    
+                                    @if($tesis->backups()->count() == 0)
+                                        <div class="alert alert-info">
+                                            <i class="fas fa-info-circle"></i>
+                                            <strong>No hay backups guardados</strong><br>
+                                            Este proyecto no tiene backups previos. Puedes cargar un archivo de backup desde tu computadora 
+                                            o crear nuevos backups después del despliegue.
+                                        </div>
+                                    @endif
+                                </div>
                             </div>
                             
                             <button type="submit" class="btn btn-success btn-lg" id="deployButton">
@@ -454,10 +582,64 @@
 @section('js')
 <script>
     $(document).ready(function() {
-        // Form submission handling - show spinner
-        $('form').submit(function() {
-            $(this).find('button[type="submit"]').prop('disabled', true);
-            $(this).find('button[type="submit"]').html('<i class="fas fa-spinner fa-spin"></i> Procesando...');
+        // Existing backups selection handler
+        const backups = @json($tesis->backups()->get()->toArray());
+        
+        $('#existing_backup_id').change(function() {
+            const backupId = $(this).val();
+            const backupInfo = $('#existing-backup-info');
+            
+            if (backupId && backupId !== '') {
+                const backup = backups.find(b => b.id == backupId);
+                if (backup) {
+                    $('#existing-backup-description').text(backup.description || 'Sin descripción');
+                    $('#existing-backup-type').html('<span class="badge badge-' + (backup.type === 'full' ? 'primary' : 'secondary') + '">' + backup.type + '</span>');
+                    $('#existing-backup-date').text(new Date(backup.created_at).toLocaleString());
+                    $('#existing-backup-size').text(backup.file_size ? formatFileSize(backup.file_size) : 'No disponible');
+                    $('#existing-backup-version').text(backup.version || 'Sin versión');
+                    backupInfo.removeClass('d-none');
+                    
+                    // Clear file upload when selecting existing backup
+                    clearBackupFile();
+                    updateDeployButton();
+                } else {
+                    backupInfo.addClass('d-none');
+                }
+            } else {
+                backupInfo.addClass('d-none');
+                updateDeployButton();
+            }
+        });
+        
+        // Initialize tooltips and file input
+        $('[data-toggle="tooltip"]').tooltip();
+        
+        // Form submission handling
+        $('form').submit(function(e) {
+            const form = $(this);
+            const submitBtn = form.find('button[type="submit"]');
+            const backupFile = $('#backup_file')[0].files[0];
+            const existingBackupId = $('#existing_backup_id').val();
+            
+            // Validate file size (100MB max)
+            if (backupFile && backupFile.size > 100 * 1024 * 1024) {
+                e.preventDefault();
+                Swal.fire({
+                    title: 'Archivo muy grande',
+                    text: 'El archivo de backup no puede superar los 100MB.',
+                    icon: 'error'
+                });
+                return false;
+            }
+            
+            // Update button based on backup selection
+            if (backupFile || existingBackupId) {
+                submitBtn.prop('disabled', true);
+                submitBtn.html('<i class="fas fa-spinner fa-spin"></i> Desplegando y restaurando...');
+            } else {
+                submitBtn.prop('disabled', true);
+                submitBtn.html('<i class="fas fa-spinner fa-spin"></i> Desplegando...');
+            }
         });
         
         // Auto-refresh page when deployment is in progress
@@ -465,23 +647,129 @@
             const refreshInterval = 5000; // 5 seconds
             let progressValue = 0;
             
-            // Update progress animation
             const updateProgress = function() {
                 progressValue = (progressValue + 5) % 100;
                 $('.progress-bar').css('width', progressValue + '%');
             };
             
-            // Set interval for progress animation
             const progressInterval = setInterval(updateProgress, 500);
             
-            // Set interval for page refresh
             setTimeout(function() {
                 window.location.reload();
             }, refreshInterval);
         @endif
-        
-        // Initialize tooltips
-        $('[data-toggle="tooltip"]').tooltip();
     });
+
+    // Handle backup file selection
+    function handleBackupFile(input) {
+        const file = input.files[0];
+        const fileInfo = $('#backup-file-info');
+        const clearBtn = $('#clear_backup');
+        const label = $('#backup_file_label');
+        
+        if (file) {
+            // Validate file type
+            const allowedTypes = ['.zip', '.tar.gz', '.tar', '.sql'];
+            const fileName = file.name.toLowerCase();
+            const isValidType = allowedTypes.some(type => fileName.endsWith(type.toLowerCase()));
+            
+            if (!isValidType) {
+                Swal.fire({
+                    title: 'Tipo de archivo no válido',
+                    text: 'Solo se permiten archivos .zip, .tar.gz, .tar o .sql',
+                    icon: 'error'
+                });
+                clearBackupFile();
+                return;
+            }
+            
+            // Validate file size (100MB max)
+            if (file.size > 100 * 1024 * 1024) {
+                Swal.fire({
+                    title: 'Archivo muy grande',
+                    text: 'El archivo no puede superar los 100MB.',
+                    icon: 'error'
+                });
+                clearBackupFile();
+                return;
+            }
+            
+            // Update file info with backup type detection
+            $('#file-name').text(file.name);
+            $('#file-size').text(formatFileSize(file.size));
+            
+            const fileType = getFileType(file.name);
+            const isSqlFile = fileName.endsWith('.sql');
+            const backupTypeLabel = isSqlFile ? 
+                '<span class="badge badge-warning">Solo Base de Datos</span>' : 
+                '<span class="badge badge-primary">Backup Completo</span>';
+            
+            $('#file-type').html(fileType + ' ' + backupTypeLabel);
+            
+            label.text(file.name);
+            fileInfo.removeClass('d-none');
+            clearBtn.show();
+            
+            // Update icon based on file type
+            const iconClass = isSqlFile ? 'fas fa-database fa-3x text-warning' : 'fas fa-file-archive fa-3x text-info';
+            fileInfo.find('i').attr('class', iconClass);
+            
+            // Clear existing backup selection when file is uploaded
+            $('#existing_backup_id').val('');
+            $('#existing-backup-info').addClass('d-none');
+            
+            updateDeployButton();
+        }
+    }
+    
+    // Clear backup file selection
+    function clearBackupFile() {
+        $('#backup_file').val('');
+        $('#backup_file_label').text('Seleccionar archivo de backup (.zip, .sql)');
+        $('#backup-file-info').addClass('d-none');
+        $('#clear_backup').hide();
+        updateDeployButton();
+    }
+    
+    // Update deploy button text
+    function updateDeployButton() {
+        const hasFile = $('#backup_file')[0].files.length > 0;
+        const hasExistingBackup = $('#existing_backup_id').val() !== '';
+        const deployBtn = $('#deployButton');
+        
+        if (hasFile) {
+            const fileName = $('#backup_file')[0].files[0].name.toLowerCase();
+            const isSqlFile = fileName.endsWith('.sql');
+            const buttonText = isSqlFile ? 
+                '<i class="fas fa-rocket"></i> Desplegar y Restaurar BD' : 
+                '<i class="fas fa-rocket"></i> Desplegar y Restaurar Backup';
+            deployBtn.html(buttonText);
+        } else if (hasExistingBackup) {
+            deployBtn.html('<i class="fas fa-rocket"></i> Desplegar y Restaurar Backup');
+        } else {
+            deployBtn.html('<i class="fas fa-rocket"></i> Desplegar Proyecto');
+        }
+    }
+    
+    // Get file type from extension
+    function getFileType(filename) {
+        const extension = filename.toLowerCase().split('.').pop();
+        switch(extension) {
+            case 'zip': return 'ZIP Archive';
+            case 'gz': return filename.toLowerCase().endsWith('.tar.gz') ? 'TAR.GZ Archive' : 'GZIP Archive';
+            case 'tar': return 'TAR Archive';
+            case 'sql': return 'SQL Database';
+            default: return 'Unknown';
+        }
+    }
+    
+    // Format file size helper
+    function formatFileSize(bytes) {
+        if (bytes === 0) return '0 Bytes';
+        const k = 1024;
+        const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    }
 </script>
 @stop

@@ -12,6 +12,9 @@
                 <a href="{{ route('proyectos.deploy', $tesis->id) }}" class="btn btn-secondary">
                     <i class="fas fa-arrow-left"></i> Volver a despliegue
                 </a>
+                <a href="{{ route('proyectos.backups.index', $tesis->id) }}" class="btn btn-warning">
+                    <i class="fas fa-archive"></i> Gestionar Backups
+                </a>
                 <a href="{{ route('tesis.show', $tesis->id) }}" class="btn btn-info">
                     <i class="fas fa-file-alt"></i> Detalles de la tesis
                 </a>

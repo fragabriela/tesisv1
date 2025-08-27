@@ -797,4 +797,263 @@ EOT;
             return false;
         }
     }
+
+    /**
+     * 🗄️ Restaurar backup en un contenedor Docker
+     */
+    public function restoreBackupInContainer(string $containerId, string $backupPath): bool
+    {
+        try {
+            Log::info('Iniciando restauración de backup en contenedor', [
+                'container_id' => $containerId,
+                'backup_path' => $backupPath
+            ]);
+
+            // Verificar que el contenedor existe
+            if (!$this->containerExists($containerId)) {
+                throw new \Exception("El contenedor {$containerId} no existe");
+            }
+
+            // Crear directorio temporal en el contenedor
+            $tempDir = '/tmp/restore-' . Str::random(8);
+            $this->execInContainer($containerId, "mkdir -p {$tempDir}");
+
+            // Copiar backup al contenedor
+            $cmd = "docker cp \"{$backupPath}\" {$containerId}:{$tempDir}/backup.zip";
+            exec($cmd, $output, $returnVar);
+            
+            if ($returnVar !== 0) {
+                throw new \Exception('Error copiando backup al contenedor: ' . implode("\n", $output));
+            }
+
+            // Extraer backup
+            $this->execInContainer($containerId, "cd {$tempDir} && unzip -o backup.zip");
+
+            // Verificar si hay backup de base de datos
+            $dbBackupExists = $this->execInContainer($containerId, "test -f {$tempDir}/database-backup.sql && echo 'exists' || echo 'not_found'");
+            
+            if (trim($dbBackupExists) === 'exists') {
+                // Restaurar base de datos
+                $this->restoreDatabaseInContainer($containerId, "{$tempDir}/database-backup.sql");
+            }
+
+            // Verificar si hay configuración de restauración
+            $configExists = $this->execInContainer($containerId, "test -f {$tempDir}/restore-config.json && echo 'exists' || echo 'not_found'");
+            
+            if (trim($configExists) === 'exists') {
+                // Aplicar configuración específica
+                $this->applyRestoreConfig($containerId, "{$tempDir}/restore-config.json");
+            }
+
+            // Limpiar archivos temporales
+            $this->execInContainer($containerId, "rm -rf {$tempDir}");
+
+            // Reiniciar servicios si es necesario
+            $this->restartContainerServices($containerId);
+
+            Log::info('Backup restaurado exitosamente en contenedor', [
+                'container_id' => $containerId
+            ]);
+
+            return true;
+
+        } catch (\Exception $e) {
+            Log::error('Error restaurando backup en contenedor', [
+                'container_id' => $containerId,
+                'error' => $e->getMessage()
+            ]);
+            return false;
+        }
+    }
+
+    /**
+     * Restaurar base de datos en contenedor
+     */
+    private function restoreDatabaseInContainer(string $containerId, string $sqlFile): bool
+    {
+        try {
+            // Detectar tipo de base de datos
+            $dbType = $this->detectDatabaseType($containerId);
+            
+            switch ($dbType) {
+                case 'sqlite':
+                    // Para SQLite, ejecutar comandos SQL directamente
+                    $dbPath = '/var/www/html/database/database.sqlite';
+                    $this->execInContainer($containerId, "sqlite3 {$dbPath} < {$sqlFile}");
+                    break;
+                    
+                case 'mysql':
+                    // Para MySQL
+                    $this->execInContainer($containerId, "mysql -u root -p < {$sqlFile}");
+                    break;
+                    
+                case 'postgres':
+                    // Para PostgreSQL
+                    $this->execInContainer($containerId, "psql -U postgres < {$sqlFile}");
+                    break;
+                    
+                default:
+                    Log::warning('Tipo de base de datos no soportado para restauración automática', [
+                        'db_type' => $dbType,
+                        'container_id' => $containerId
+                    ]);
+                    return false;
+            }
+
+            Log::info('Base de datos restaurada exitosamente', [
+                'container_id' => $containerId,
+                'db_type' => $dbType
+            ]);
+
+            return true;
+
+        } catch (\Exception $e) {
+            Log::error('Error restaurando base de datos', [
+                'container_id' => $containerId,
+                'error' => $e->getMessage()
+            ]);
+            return false;
+        }
+    }
+
+    /**
+     * Detectar tipo de base de datos en contenedor
+     */
+    private function detectDatabaseType(string $containerId): string
+    {
+        try {
+            // Buscar archivo SQLite
+            $sqliteExists = $this->execInContainer($containerId, "test -f /var/www/html/database/database.sqlite && echo 'found'");
+            if (trim($sqliteExists) === 'found') {
+                return 'sqlite';
+            }
+
+            // Buscar MySQL
+            $mysqlExists = $this->execInContainer($containerId, "which mysql && echo 'found'");
+            if (strpos($mysqlExists, 'found') !== false) {
+                return 'mysql';
+            }
+
+            // Buscar PostgreSQL
+            $pgExists = $this->execInContainer($containerId, "which psql && echo 'found'");
+            if (strpos($pgExists, 'found') !== false) {
+                return 'postgres';
+            }
+
+            return 'unknown';
+
+        } catch (\Exception $e) {
+            Log::error('Error detectando tipo de base de datos', [
+                'container_id' => $containerId,
+                'error' => $e->getMessage()
+            ]);
+            return 'unknown';
+        }
+    }
+
+    /**
+     * Aplicar configuración de restauración
+     */
+    private function applyRestoreConfig(string $containerId, string $configFile): bool
+    {
+        try {
+            $configData = json_decode($this->execInContainer($containerId, "cat {$configFile}"), true);
+            
+            if (!$configData) {
+                Log::warning('No se pudo leer configuración de restauración');
+                return false;
+            }
+
+            // Aplicar configuraciones de entorno si existen
+            if (isset($configData['environment'])) {
+                foreach ($configData['environment'] as $key => $value) {
+                    $this->execInContainer($containerId, "export {$key}={$value}");
+                }
+            }
+
+            // Ejecutar comandos post-restauración si existen
+            if (isset($configData['restore_instructions']['commands'])) {
+                foreach ($configData['restore_instructions']['commands'] as $command) {
+                    // Reemplazar placeholder CONTAINER_ID
+                    $command = str_replace('CONTAINER_ID', $containerId, $command);
+                    $this->execInContainer($containerId, $command);
+                }
+            }
+
+            Log::info('Configuración de restauración aplicada', [
+                'container_id' => $containerId
+            ]);
+
+            return true;
+
+        } catch (\Exception $e) {
+            Log::error('Error aplicando configuración de restauración', [
+                'container_id' => $containerId,
+                'error' => $e->getMessage()
+            ]);
+            return false;
+        }
+    }
+
+    /**
+     * Reiniciar servicios del contenedor después de restauración
+     */
+    private function restartContainerServices(string $containerId): bool
+    {
+        try {
+            // Limpiar cache de Laravel si existe
+            $this->execInContainer($containerId, 'php artisan config:clear || true');
+            $this->execInContainer($containerId, 'php artisan cache:clear || true');
+            $this->execInContainer($containerId, 'php artisan route:clear || true');
+            
+            // Reiniciar servicios web si es necesario
+            $this->execInContainer($containerId, 'service apache2 reload || service nginx reload || true');
+
+            Log::info('Servicios del contenedor reiniciados', [
+                'container_id' => $containerId
+            ]);
+
+            return true;
+
+        } catch (\Exception $e) {
+            Log::error('Error reiniciando servicios del contenedor', [
+                'container_id' => $containerId,
+                'error' => $e->getMessage()
+            ]);
+            return false;
+        }
+    }
+
+    /**
+     * Verificar si un contenedor existe
+     */
+    public function containerExists(string $containerId): bool
+    {
+        try {
+            $cmd = "docker ps -a --format \"{{.ID}}\" | grep -q {$containerId}";
+            exec($cmd, $output, $returnVar);
+            return $returnVar === 0;
+        } catch (\Exception $e) {
+            return false;
+        }
+    }
+
+    /**
+     * Ejecutar comando en contenedor y retornar salida
+     */
+    private function execInContainer(string $containerId, string $command): string
+    {
+        $cmd = "docker exec {$containerId} bash -c '{$command}' 2>&1";
+        exec($cmd, $output, $returnVar);
+        
+        if ($returnVar !== 0) {
+            Log::warning('Comando en contenedor falló', [
+                'container_id' => $containerId,
+                'command' => $command,
+                'output' => implode("\n", $output)
+            ]);
+        }
+        
+        return implode("\n", $output);
+    }
 }

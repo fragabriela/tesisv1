@@ -63,4 +63,28 @@ class Tesis extends Model
     {
         return $this->belongsTo(Tutor::class, 'tutor_id');
     }
+
+    /**
+     * Get the project backups for this tesis.
+     */
+    public function backups()
+    {
+        return $this->hasMany(ProjectBackup::class);
+    }
+
+    /**
+     * Get the latest backup for this tesis.
+     */
+    public function latestBackup()
+    {
+        return $this->hasOne(ProjectBackup::class)->latest('backed_up_at');
+    }
+
+    /**
+     * Get database backups only.
+     */
+    public function databaseBackups()
+    {
+        return $this->hasMany(ProjectBackup::class)->where('backup_type', 'database');
+    }
 }
