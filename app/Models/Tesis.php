@@ -34,18 +34,15 @@ class Tesis extends Model
         'project_repo_path'
     ];
 
-    protected $dates = [
-        'fecha_inicio',
-        'fecha_fin',
-        'created_at',
-        'updated_at',
-        'deleted_at',
-    ];
-    
     protected $casts = [
+        'fecha_inicio' => 'date',
+        'fecha_fin' => 'date',
         'project_config' => 'array',
         'is_visible' => 'boolean',
         'last_deployed' => 'datetime',
+        'created_at' => 'datetime',
+        'updated_at' => 'datetime',
+        'deleted_at' => 'datetime',
     ];
 
     /**

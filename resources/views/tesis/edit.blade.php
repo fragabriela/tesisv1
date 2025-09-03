@@ -80,7 +80,7 @@
 
                         <div class="form-group">
                             <label for="fecha_inicio">Fecha de Inicio <span class="text-danger">*</span></label>
-                            <input type="date" class="form-control @error('fecha_inicio') is-invalid @enderror" id="fecha_inicio" name="fecha_inicio" value="{{ old('fecha_inicio', $tesis->fecha_inicio->format('Y-m-d')) }}" required>
+                            <input type="date" class="form-control @error('fecha_inicio') is-invalid @enderror" id="fecha_inicio" name="fecha_inicio" value="{{ old('fecha_inicio', $tesis->fecha_inicio ? $tesis->fecha_inicio->format('Y-m-d') : '') }}" required>
                             @error('fecha_inicio')
                                 <span class="invalid-feedback" role="alert">
                                     <strong>{{ $message }}</strong>
