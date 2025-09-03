@@ -3,6 +3,7 @@
 use App\Http\Controllers\AlumnoController;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\DocumentoController;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\TesisController;
 use App\Http\Controllers\MiFormularioController;
@@ -442,6 +443,38 @@ Route::middleware(['auth'])->group(function () {
 });
 
 // Las rutas de proyectos ahora se encuentran en routes/proyectos.php
+
+// Documento Routes
+Route::middleware(['auth'])->group(function () {
+    Route::get('documento', [DocumentoController::class, 'index'])->name('documento.index')->middleware('permission:ver documentos');
+    Route::get('documento/data', [DocumentoController::class, 'getData'])->name('documento.data');
+    Route::get('documento/create', [DocumentoController::class, 'create'])->name('documento.create')->middleware('permission:crear documentos');
+    Route::get('documento/{documento}/reconvertir', [DocumentoController::class, 'reconvertirDocumento'])->name('documento.reconvertir')->middleware('permission:editar documentos');
+    Route::get('documento/debug', function() {
+        $tesis = \App\Models\Tesis::all();
+        return view('documentos.debug', compact('tesis'));
+    })->name('documento.debug');
+    
+    // Ruta temporal para test del formulario
+    Route::get('documento/test-form', function() {
+        return view('test_form_documento');
+    })->name('documento.test-form');
+    Route::post('documento', [DocumentoController::class, 'store'])->name('documento.store')->middleware('permission:crear documentos');
+    Route::get('documento/{documento}', [DocumentoController::class, 'show'])->name('documento.show')->middleware('permission:ver documentos');
+    Route::get('documento/{documento}/edit', [DocumentoController::class, 'edit'])->name('documento.edit')->middleware('permission:editar documentos');
+    Route::put('documento/{documento}', [DocumentoController::class, 'update'])->name('documento.update')->middleware('permission:editar documentos');
+    Route::delete('documento/{documento}', [DocumentoController::class, 'destroy'])->name('documento.destroy')->middleware('permission:eliminar documentos');
+    
+    // AJAX routes para comentarios
+    Route::post('documento/{documento}/comentario', [DocumentoController::class, 'agregarComentario'])->name('documento.comentario.agregar');
+    Route::post('comentario/{comentario}/responder', [DocumentoController::class, 'responderComentario'])->name('comentario.responder');
+    
+    // Ruta para subir imágenes del editor TinyMCE
+    Route::post('documento/upload-image', [DocumentoController::class, 'uploadImage'])->name('documento.upload-image');
+});
+
+// Ruta de prueba temporal sin middleware
+Route::get('documento-test', [DocumentoController::class, 'index'])->name('documento.test');
 
 
 

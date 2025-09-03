@@ -349,6 +349,14 @@ return [
             'can' => 'ver tesis',
         ],
         [
+            'text' => 'Documentos Colaborativos',
+            'url' => 'documento',
+            'icon' => 'fas fa-fw fa-file-word',
+            'can' => 'ver documentos',
+            'label' => 'NUEVO',
+            'label_color' => 'info',
+        ],
+        [
             'text' => 'Proyectos',
             'route' => 'proyectos.index',
             'icon' => 'fas fa-fw fa-project-diagram',

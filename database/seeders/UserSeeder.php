@@ -51,6 +51,13 @@ class UserSeeder extends Seeder
             'eliminar tesis',
             'exportar tesis',
             
+            // Documentos
+            'ver documentos',
+            'crear documentos',
+            'editar documentos',
+            'eliminar documentos',
+            'exportar documentos',
+            
             // Proyectos
             'ver proyectos',
             'crear proyectos',
@@ -89,6 +96,10 @@ class UserSeeder extends Seeder
             'crear tesis',
             'editar tesis',
             'exportar tesis',
+            'ver documentos',
+            'crear documentos',
+            'editar documentos',
+            'exportar documentos',
             'ver proyectos',
             'crear proyectos',
             'monitorear proyectos',
@@ -102,6 +113,8 @@ class UserSeeder extends Seeder
             'ver alumnos',
             'ver tesis',
             'editar tesis',
+            'ver documentos',
+            'editar documentos',
             'ver proyectos',
         ]);
 
