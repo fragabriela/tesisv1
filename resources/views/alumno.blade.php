@@ -8,6 +8,30 @@
 
 @section('content')
 
+    @if(session('success'))
+        <div class="alert alert-success alert-dismissible">
+            <button type="button" class="close" data-dismiss="alert" aria-hidden="true">×</button>
+            <h5><i class="icon fas fa-check"></i> Éxito!</h5>
+            {{ session('success') }}
+        </div>
+    @endif
+    
+    @if(session('warning'))
+        <div class="alert alert-warning alert-dismissible">
+            <button type="button" class="close" data-dismiss="alert" aria-hidden="true">×</button>
+            <h5><i class="icon fas fa-exclamation-triangle"></i> Advertencia!</h5>
+            {{ session('warning') }}
+        </div>
+    @endif
+    
+    @if(session('error'))
+        <div class="alert alert-danger alert-dismissible">
+            <button type="button" class="close" data-dismiss="alert" aria-hidden="true">×</button>
+            <h5><i class="icon fas fa-ban"></i> Error!</h5>
+            {{ session('error') }}
+        </div>
+    @endif
+
     @if ($errors->any())
         <div class="alert alert-danger">
             <ul class="mb-0">
@@ -137,7 +161,20 @@
             <div class="col-md-9 column-alumnos">
                 <div class="card">
                     <div class="card-header">
-                        <h3 class="card-title"><i class="fas fa-user-graduate mr-2"></i> Listado de Alumnos</h3>
+                        <div class="d-flex justify-content-between align-items-center">
+                            <h3 class="card-title mb-0"><i class="fas fa-user-graduate mr-2"></i> Listado de Alumnos</h3>
+                            <div class="btn-group">
+                                <button type="button" class="btn btn-info btn-sm" data-toggle="modal" data-target="#importAlumnosModal">
+                                    <i class="fas fa-file-import"></i> Importar Excel
+                                </button>
+                                <a href="{{ route('alumno.export.pdf') }}" class="btn btn-danger btn-sm">
+                                    <i class="fas fa-file-pdf"></i> PDF
+                                </a>
+                                <a href="{{ route('alumno.export.excel') }}" class="btn btn-success btn-sm">
+                                    <i class="fas fa-file-excel"></i> Excel
+                                </a>
+                            </div>
+                        </div>
                     </div>
                     <div class="card-body">
                         <table class="table table-striped table-hover" id="alumnos-table">
@@ -192,6 +229,56 @@
                 </table>
                     </div>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Import Modal -->
+    <div class="modal fade" id="importAlumnosModal" tabindex="-1" role="dialog" aria-labelledby="importAlumnosModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg" role="document">
+            <div class="modal-content">
+                <form action="{{ route('alumno.import.excel') }}" method="POST" enctype="multipart/form-data">
+                    @csrf
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="importAlumnosModalLabel">Importar Alumnos desde Excel</h5>
+                        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                            <span aria-hidden="true">&times;</span>
+                        </button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="form-group">
+                            <label for="archivo_excel">Archivo Excel:</label>
+                            <input type="file" class="form-control-file" id="archivo_excel" name="archivo_excel" 
+                                   accept=".xlsx,.xls,.csv" required>
+                            <small class="form-text text-muted">
+                                Formatos permitidos: .xlsx, .xls, .csv (máximo 2MB)
+                            </small>
+                        </div>
+                        <div class="alert alert-info">
+                            <h6><i class="icon fas fa-info"></i> Formato del archivo:</h6>
+                            <p>El archivo Excel debe contener las siguientes columnas:</p>
+                            <ul>
+                                <li><strong>nombre</strong>: Nombre del alumno (obligatorio)</li>
+                                <li><strong>apellido</strong>: Apellido del alumno (obligatorio)</li>
+                                <li><strong>email</strong>: Correo electrónico (obligatorio)</li>
+                                <li><strong>telefono</strong>: Número de teléfono (opcional)</li>
+                                <li><strong>cedula</strong>: Número de cédula (opcional)</li>
+                                <li><strong>matricula</strong>: Número de matrícula (opcional)</li>
+                                <li><strong>fecha_nacimiento</strong>: Fecha de nacimiento (formato: YYYY-MM-DD, opcional)</li>
+                                <li><strong>carrera</strong>: Nombre de la carrera (opcional)</li>
+                                <li><strong>direccion</strong>: Dirección del alumno (opcional)</li>
+                                <li><strong>estado</strong>: Estado del alumno (activo, inactivo, graduado, retirado, opcional)</li>
+                            </ul>
+                            <p><small>La primera fila debe contener los nombres de las columnas. Si no existe la carrera especificada, se dejará sin carrera asignada.</small></p>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancelar</button>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-upload"></i> Importar
+                        </button>
+                    </div>
+                </form>
             </div>
         </div>
     </div>

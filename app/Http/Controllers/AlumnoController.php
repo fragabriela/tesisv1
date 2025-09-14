@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Alumno;
 use App\Models\Carrera;
+use App\Imports\AlumnosImport;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 use Yajra\DataTables\Facades\DataTables;
@@ -408,5 +409,38 @@ class AlumnoController extends Controller
     public function exportExcel()
     {
         return Excel::download(new AlumnosExport, 'alumnos_' . date('YmdHis') . '.xlsx');
+    }
+    
+    /**
+     * Import alumnos from Excel
+     */
+    public function importExcel(Request $request)
+    {
+        try {
+            $validator = Validator::make($request->all(), [
+                'archivo_excel' => 'required|file|mimes:xlsx,xls,csv|max:2048'
+            ]);
+
+            if ($validator->fails()) {
+                return redirect()->back()->withErrors($validator)->withInput();
+            }
+
+            $import = new AlumnosImport();
+            Excel::import($import, $request->file('archivo_excel'));
+
+            $importedCount = $import->getImportedCount();
+            $errors = $import->getErrors();
+
+            if (count($errors) > 0) {
+                $errorMessage = "Se importaron {$importedCount} alumnos. Errores encontrados: " . implode(', ', $errors);
+                return redirect()->route('alumno.index')->with('warning', $errorMessage);
+            }
+
+            return redirect()->route('alumno.index')->with('success', "Se importaron {$importedCount} alumnos exitosamente");
+
+        } catch (\Exception $e) {
+            Log::error('Error al importar alumnos: ' . $e->getMessage());
+            return redirect()->back()->with('error', 'Ocurrió un error al importar el archivo: ' . $e->getMessage());
+        }
     }
 }

@@ -12,6 +12,10 @@
             <div class="d-flex justify-content-between">
                 <h3 class="card-title">Lista de Carreras</h3>
                 <div>
+                    <!-- Import Excel Button -->
+                    <button type="button" class="btn btn-info" data-toggle="modal" data-target="#importModal">
+                        <i class="fas fa-file-import"></i> Importar Excel
+                    </button>
                     <a href="{{ route('carrera.export.pdf') }}" class="btn btn-danger">
                         <i class="fas fa-file-pdf"></i> PDF
                     </a>
@@ -30,6 +34,14 @@
                     <button type="button" class="close" data-dismiss="alert" aria-hidden="true">×</button>
                     <h5><i class="icon fas fa-check"></i> Éxito!</h5>
                     {{ session('success') }}
+                </div>
+            @endif
+            
+            @if(session('warning'))
+                <div class="alert alert-warning alert-dismissible">
+                    <button type="button" class="close" data-dismiss="alert" aria-hidden="true">×</button>
+                    <h5><i class="icon fas fa-exclamation-triangle"></i> Advertencia!</h5>
+                    {{ session('warning') }}
                 </div>
             @endif
             
@@ -55,6 +67,49 @@
                 <tbody>
                 </tbody>
             </table>
+        </div>
+    </div>
+
+    <!-- Import Modal -->
+    <div class="modal fade" id="importModal" tabindex="-1" role="dialog" aria-labelledby="importModalLabel" aria-hidden="true">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <form action="{{ route('carrera.import.excel') }}" method="POST" enctype="multipart/form-data">
+                    @csrf
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="importModalLabel">Importar Carreras desde Excel</h5>
+                        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                            <span aria-hidden="true">&times;</span>
+                        </button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="form-group">
+                            <label for="archivo_excel">Archivo Excel:</label>
+                            <input type="file" class="form-control-file" id="archivo_excel" name="archivo_excel" 
+                                   accept=".xlsx,.xls,.csv" required>
+                            <small class="form-text text-muted">
+                                Formatos permitidos: .xlsx, .xls, .csv (máximo 2MB)
+                            </small>
+                        </div>
+                        <div class="alert alert-info">
+                            <h6><i class="icon fas fa-info"></i> Formato del archivo:</h6>
+                            <p>El archivo Excel debe contener las siguientes columnas:</p>
+                            <ul>
+                                <li><strong>nombre</strong>: Nombre de la carrera (obligatorio)</li>
+                                <li><strong>descripcion</strong>: Descripción de la carrera (opcional)</li>
+                                <li><strong>activo</strong>: Estado activo (1 para activo, 0 para inactivo, opcional)</li>
+                            </ul>
+                            <p><small>La primera fila debe contener los nombres de las columnas.</small></p>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancelar</button>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-upload"></i> Importar
+                        </button>
+                    </div>
+                </form>
+            </div>
         </div>
     </div>
 @stop

@@ -407,6 +407,7 @@ Route::middleware(['auth'])->group(function () {
     Route::post('carrera', [CarreraController::class, 'store'])->name('carrera.store')->middleware('permission:crear carreras');
     Route::get('carrera/export-pdf', [CarreraController::class, 'exportPDF'])->name('carrera.export.pdf')->middleware('permission:exportar carreras');
     Route::get('carrera/export-excel', [CarreraController::class, 'exportExcel'])->name('carrera.export.excel')->middleware('permission:exportar carreras');
+    Route::post('carrera/import-excel', [CarreraController::class, 'importExcel'])->name('carrera.import.excel')->middleware('permission:crear carreras');
     Route::get('carrera/{carrera}', [CarreraController::class, 'show'])->name('carrera.show')->middleware('permission:ver carreras');
     Route::get('carrera/{carrera}/edit', [CarreraController::class, 'edit'])->name('carrera.edit')->middleware('permission:editar carreras');
     Route::put('carrera/{carrera}', [CarreraController::class, 'update'])->name('carrera.update')->middleware('permission:editar carreras');
@@ -421,6 +422,7 @@ Route::middleware(['auth'])->group(function () {
     Route::post('alumno/guardar', [AlumnoController::class, 'store'])->name('alumno.guardar')->middleware('permission:crear alumnos');
     Route::get('alumno/export-pdf', [AlumnoController::class, 'exportPDF'])->name('alumno.export.pdf')->middleware('permission:exportar alumnos');
     Route::get('alumno/export-excel', [AlumnoController::class, 'exportExcel'])->name('alumno.export.excel')->middleware('permission:exportar alumnos');
+    Route::post('alumno/import-excel', [AlumnoController::class, 'importExcel'])->name('alumno.import.excel')->middleware('permission:crear alumnos');
     Route::get('alumno/{alumno}', [AlumnoController::class, 'show'])->name('alumno.show')->middleware('permission:ver alumnos');
     Route::get('alumno/{alumno}/edit', [AlumnoController::class, 'edit'])->name('alumno.edit')->middleware('permission:editar alumnos');
     Route::put('alumno/{alumno}', [AlumnoController::class, 'update'])->name('alumno.update')->middleware('permission:editar alumnos');
@@ -440,6 +442,7 @@ Route::middleware(['auth'])->group(function () {
     Route::delete('tutor/{tutor}', [TutorController::class, 'destroy'])->name('tutor.destroy')->middleware('permission:eliminar tutores');
     Route::get('tutor/export-pdf', [TutorController::class, 'exportPDF'])->name('tutor.export.pdf')->middleware('permission:exportar tutores');
     Route::get('tutor/export-excel', [TutorController::class, 'exportExcel'])->name('tutor.export.excel')->middleware('permission:exportar tutores');
+    Route::post('tutor/import-excel', [TutorController::class, 'importExcel'])->name('tutor.import.excel')->middleware('permission:crear tutores');
 });
 
 // Las rutas de proyectos ahora se encuentran en routes/proyectos.php

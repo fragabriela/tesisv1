@@ -3,10 +3,14 @@
 namespace App\Http\Controllers;
 
 use App\Models\Tutor;
+use App\Imports\TutoresImport;
+use App\Exports\TutoresExport;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Facades\Log;
 use Yajra\DataTables\Facades\DataTables;
 use Barryvdh\DomPDF\Facade\Pdf;
+use Maatwebsite\Excel\Facades\Excel;
 
 class TutorController extends Controller
 {
@@ -325,5 +329,38 @@ class TutorController extends Controller
     public function exportExcel()
     {
         return Excel::download(new TutoresExport, 'tutores.xlsx');
+    }
+    
+    /**
+     * Import tutores from Excel
+     */
+    public function importExcel(Request $request)
+    {
+        try {
+            $validator = Validator::make($request->all(), [
+                'archivo_excel' => 'required|file|mimes:xlsx,xls,csv|max:2048'
+            ]);
+
+            if ($validator->fails()) {
+                return redirect()->back()->withErrors($validator)->withInput();
+            }
+
+            $import = new TutoresImport();
+            Excel::import($import, $request->file('archivo_excel'));
+
+            $importedCount = $import->getImportedCount();
+            $errors = $import->getErrors();
+
+            if (count($errors) > 0) {
+                $errorMessage = "Se importaron {$importedCount} tutores. Errores encontrados: " . implode(', ', $errors);
+                return redirect()->route('tutor.index')->with('warning', $errorMessage);
+            }
+
+            return redirect()->route('tutor.index')->with('success', "Se importaron {$importedCount} tutores exitosamente");
+
+        } catch (\Exception $e) {
+            Log::error('Error al importar tutores: ' . $e->getMessage());
+            return redirect()->back()->with('error', 'Ocurrió un error al importar el archivo: ' . $e->getMessage());
+        }
     }
 }

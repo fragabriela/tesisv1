@@ -4,8 +4,10 @@ namespace App\Http\Controllers;
 
 use App\Models\Carrera;
 use App\Exports\CarrerasExport;
+use App\Imports\CarrerasImport;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Facades\Log;
 use Yajra\DataTables\Facades\DataTables;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Maatwebsite\Excel\Facades\Excel;
@@ -184,5 +186,38 @@ class CarreraController extends Controller
     public function exportExcel()
     {
         return Excel::download(new CarrerasExport, 'carreras.xlsx');
+    }
+    
+    /**
+     * Import carreras from Excel
+     */
+    public function importExcel(Request $request)
+    {
+        try {
+            $validator = Validator::make($request->all(), [
+                'archivo_excel' => 'required|file|mimes:xlsx,xls,csv|max:2048'
+            ]);
+
+            if ($validator->fails()) {
+                return redirect()->back()->withErrors($validator)->withInput();
+            }
+
+            $import = new CarrerasImport();
+            Excel::import($import, $request->file('archivo_excel'));
+
+            $importedCount = $import->getImportedCount();
+            $errors = $import->getErrors();
+
+            if (count($errors) > 0) {
+                $errorMessage = "Se importaron {$importedCount} carreras. Errores encontrados: " . implode(', ', $errors);
+                return redirect()->route('carrera.index')->with('warning', $errorMessage);
+            }
+
+            return redirect()->route('carrera.index')->with('success', "Se importaron {$importedCount} carreras exitosamente");
+
+        } catch (\Exception $e) {
+            Log::error('Error al importar carreras: ' . $e->getMessage());
+            return redirect()->back()->with('error', 'Ocurrió un error al importar el archivo: ' . $e->getMessage());
+        }
     }
 }
