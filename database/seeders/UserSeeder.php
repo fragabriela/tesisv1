@@ -76,62 +76,85 @@ class UserSeeder extends Seeder
             Permission::firstOrCreate(['name' => $permission]);
         }
 
-        // Create roles and assign permissions
+        // Create roles and assign permissions ONLY if they don't exist or have no permissions
         // Admin
         $adminRole = Role::firstOrCreate(['name' => 'administrador']);
-        $adminRole->syncPermissions(Permission::all());
+        if ($adminRole->permissions()->count() == 0) {
+            $adminRole->syncPermissions(Permission::all());
+        }
 
         // Coordinador
         $coordinadorRole = Role::firstOrCreate(['name' => 'coordinador']);
-        $coordinadorRole->syncPermissions([
-            'ver dashboard',
-            'ver alumnos',
-            'crear alumnos',
-            'editar alumnos',
-            'exportar alumnos',
-            'ver carreras',
-            'exportar carreras',
-            'ver tutores',
-            'crear tutores',
-            'editar tutores',
-            'exportar tutores',
-            'ver tesis',
-            'crear tesis',
-            'editar tesis',
-            'exportar tesis',
-            'ver documentos',
-            'crear documentos',
-            'editar documentos',
-            'exportar documentos',
-            'ver proyectos',
-            'crear proyectos',
-            'monitorear proyectos',
-            'exportar proyectos',
-        ]);
+        if ($coordinadorRole->permissions()->count() == 0) {
+            $coordinadorRole->syncPermissions([
+                'ver dashboard',
+                'ver alumnos',
+                'crear alumnos',
+                'editar alumnos',
+                'exportar alumnos',
+                'ver carreras',
+                'exportar carreras',
+                'ver tutores',
+                'crear tutores',
+                'editar tutores',
+                'exportar tutores',
+                'ver tesis',
+                'crear tesis',
+                'editar tesis',
+                'exportar tesis',
+                'ver documentos',
+                'crear documentos',
+                'editar documentos',
+                'exportar documentos',
+                'ver proyectos',
+                'crear proyectos',
+                'monitorear proyectos',
+                'exportar proyectos',
+            ]);
+        }
 
         // Tutor
         $tutorRole = Role::firstOrCreate(['name' => 'tutor']);
-        $tutorRole->syncPermissions([
-            'ver dashboard',
-            'ver tesis',
-            'editar tesis',
-            'ver documentos',
-            'editar documentos',
-            'ver proyectos',
-        ]);
+        if ($tutorRole->permissions()->count() == 0) {
+            $tutorRole->syncPermissions([
+                'ver dashboard',
+                'ver tesis',
+                'editar tesis',
+                'ver documentos',
+                'editar documentos',
+                'ver proyectos',
+            ]);
+        }
 
         // Alumno
         $alumnoRole = Role::firstOrCreate(['name' => 'alumno']);
-        $alumnoRole->syncPermissions([
-            'ver dashboard',
-            'ver tesis',
-            'editar tesis',
-            'ver documentos',
-            'editar documentos',
-            'ver proyectos',
-            'crear proyectos',
-            'editar proyectos',
-        ]);
+        if ($alumnoRole->permissions()->count() == 0) {
+            $alumnoRole->syncPermissions([
+                'ver tesis',
+                'editar tesis',
+                'ver documentos',
+                'editar documentos',
+                'ver proyectos',
+                'crear proyectos',
+                'editar proyectos',
+            ]);
+        }
+
+        // Estudiante
+        $estudianteRole = Role::firstOrCreate(['name' => 'estudiante']);
+        if ($estudianteRole->permissions()->count() == 0) {
+            $estudianteRole->syncPermissions([
+                'ver tesis',
+                'crear tesis',
+                'editar tesis',
+                'ver documentos',
+                'crear documentos',
+                'editar documentos',
+                'ver proyectos',
+                'crear proyectos',
+                'editar proyectos',
+            ]);
+        }
 
         // Create admin user
         $admin = User::firstOrCreate(

@@ -447,6 +447,20 @@ return [
             ],
         ],
         
+        ['header' => 'ADMINISTRACIÓN', 'can' => 'administrar usuarios'],
+        [
+            'text' => 'Gestión de Usuarios',
+            'route' => 'admin.users.index',
+            'icon' => 'fas fa-fw fa-users-cog',
+            'can' => 'administrar usuarios',
+        ],
+        [
+            'text' => 'Gestión de Roles',
+            'route' => 'admin.roles.index',
+            'icon' => 'fas fa-fw fa-user-shield',
+            'can' => 'administrar usuarios',
+        ],
+        
         ['header' => 'CONFIGURACIÓN'],
         [
             'text' => 'Usuarios',

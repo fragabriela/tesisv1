@@ -31,9 +31,10 @@ Route::get('register', [RegisterController::class, 'showRegistrationForm'])->nam
 Route::post('register', [RegisterController::class, 'register']);
 
 // Welcome page
-Route::get('/', function () {
-    return view('welcome');
-});
+Route::get('/', [App\Http\Controllers\HomeController::class, 'index']);
+
+// No permissions page
+Route::get('/no-permissions', [App\Http\Controllers\HomeController::class, 'noPermissions'])->name('no-permissions')->middleware('auth');
 
 // Diagnostic route to check user permissions
 Route::get('/check-permissions', function() {
@@ -112,6 +113,49 @@ Route::get('/database-diagnostic', function () {
     return view('debug.database-diagnostic');
 });
 Route::match(['post', 'put'], '/debug/log-form-data', [App\Http\Controllers\DebugController::class, 'logFormData']);
+
+// Test dashboard permission route
+Route::get('/test-dashboard-permission', function() {
+    if (!auth()->check()) {
+        return response()->json([
+            'error' => 'Usuario no autenticado',
+            'redirect' => route('login')
+        ]);
+    }
+    
+    $user = auth()->user();
+    
+    return response()->json([
+        'user' => [
+            'id' => $user->id,
+            'name' => $user->name,
+            'email' => $user->email
+        ],
+        'roles' => $user->roles->pluck('name'),
+        'permissions' => $user->getAllPermissions()->pluck('name'),
+        'can_ver_dashboard' => $user->can('ver dashboard'),
+        'should_access_dashboard' => $user->can('ver dashboard') ? 'SÍ' : 'NO',
+        'message' => $user->can('ver dashboard') 
+            ? 'El usuario puede acceder al dashboard' 
+            : 'El usuario NO puede acceder al dashboard - debería ver error 403'
+    ]);
+})->name('test.dashboard.permission');
+
+// Refresh current user permissions
+Route::get('/refresh-my-permissions', function() {
+    if (!auth()->check()) {
+        return redirect()->route('login');
+    }
+    
+    // Clear permission cache
+    app()[\Spatie\Permission\PermissionRegistrar::class]->forgetCachedPermissions();
+    
+    // Force refresh user permissions by re-loading the user
+    $user = \App\Models\User::find(auth()->id());
+    auth()->setUser($user);
+    
+    return redirect()->back()->with('success', 'Permisos actualizados. Los cambios deberían reflejarse ahora.');
+})->name('refresh.permissions');
 
 // Form submission monitor routes
 Route::get('/debug/form-monitor', [App\Http\Controllers\DebugController::class, 'formSubmissionMonitor'])->name('debug.form.monitor');
@@ -388,17 +432,17 @@ Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard
 Route::get('/enviar-formulario', [MiFormularioController::class, 'index']);
 Route::post('/guardar-formulario', [MiFormularioController::class, 'guardar'])->name('formulario.guardar');
 
-// Tesis Routes - Todos los usuarios autenticados (con filtros por rol en el controlador)
+// Tesis Routes - Todos los usuarios autenticados (con filtros por permisos)
 Route::middleware(['auth'])->group(function () {
     Route::get('tesis', [TesisController::class, 'index'])->name('tesis.index')->middleware('permission:ver tesis');
-    Route::get('tesis/create', [TesisController::class, 'create'])->name('tesis.create')->middleware('role.access:administrador,coordinador')->middleware('permission:crear tesis');
-    Route::post('tesis', [TesisController::class, 'store'])->name('tesis.store')->middleware('role.access:administrador,coordinador')->middleware('permission:crear tesis');
+    Route::get('tesis/create', [TesisController::class, 'create'])->name('tesis.create')->middleware('permission:crear tesis');
+    Route::post('tesis', [TesisController::class, 'store'])->name('tesis.store')->middleware('permission:crear tesis');
     Route::get('tesis/{tesis}', [TesisController::class, 'show'])->name('tesis.show')->middleware('permission:ver tesis');
     Route::get('tesis/{tesis}/edit', [TesisController::class, 'edit'])->name('tesis.edit')->middleware('permission:editar tesis');
     Route::put('tesis/{tesis}', [TesisController::class, 'update'])->name('tesis.update')->middleware('permission:editar tesis');
-    Route::delete('tesis/{tesis}', [TesisController::class, 'destroy'])->name('tesis.destroy')->middleware('role.access:administrador,coordinador')->middleware('permission:eliminar tesis');
-    Route::get('tesis/export-pdf', [TesisController::class, 'exportPDF'])->name('tesis.export.pdf')->middleware('role.access:administrador,coordinador')->middleware('permission:exportar tesis');
-    Route::get('tesis/export-excel', [TesisController::class, 'exportExcel'])->name('tesis.export.excel')->middleware('role.access:administrador,coordinador')->middleware('permission:exportar tesis');
+    Route::delete('tesis/{tesis}', [TesisController::class, 'destroy'])->name('tesis.destroy')->middleware('permission:eliminar tesis');
+    Route::get('tesis/export-pdf', [TesisController::class, 'exportPDF'])->name('tesis.export.pdf')->middleware('permission:exportar tesis');
+    Route::get('tesis/export-excel', [TesisController::class, 'exportExcel'])->name('tesis.export.excel')->middleware('permission:exportar tesis');
 });
 // Carrera Routes - Solo Admin y Coordinador
 Route::middleware(['auth', 'role.access:administrador,coordinador'])->group(function () {
@@ -445,6 +489,31 @@ Route::middleware(['auth', 'role.access:administrador,coordinador'])->group(func
 });
 
 // Las rutas de proyectos ahora se encuentran en routes/proyectos.php
+
+// Admin Routes - User Management
+Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () {
+    // Users
+    Route::get('users', [App\Http\Controllers\Admin\UserManagementController::class, 'index'])->name('users.index')->middleware('role.access:administrador');
+    Route::post('users', [App\Http\Controllers\Admin\UserManagementController::class, 'store'])->name('users.store')->middleware('role.access:administrador');
+    Route::get('users/{id}', [App\Http\Controllers\Admin\UserManagementController::class, 'show'])->name('users.show')->middleware('role.access:administrador');
+    Route::put('users/{id}', [App\Http\Controllers\Admin\UserManagementController::class, 'update'])->name('users.update')->middleware('role.access:administrador');
+    Route::delete('users/{id}', [App\Http\Controllers\Admin\UserManagementController::class, 'destroy'])->name('users.destroy')->middleware('role.access:administrador');
+    Route::put('users/{id}/roles', [App\Http\Controllers\Admin\UserManagementController::class, 'updateRoles'])->name('users.roles.update')->middleware('role.access:administrador');
+    Route::put('users/{id}/associate', [App\Http\Controllers\Admin\UserManagementController::class, 'associateRecords'])->name('users.associate')->middleware('role.access:administrador');
+    Route::get('users/{id}/association-data', [App\Http\Controllers\Admin\UserManagementController::class, 'getAssociationData'])->name('users.association-data')->middleware('role.access:administrador');
+    
+    // Roles and Permissions
+    Route::get('roles', [App\Http\Controllers\Admin\UserManagementController::class, 'rolesIndex'])->name('roles.index')->middleware('role.access:administrador');
+    Route::post('roles', [App\Http\Controllers\Admin\UserManagementController::class, 'storeRole'])->name('roles.store')->middleware('role.access:administrador');
+    Route::get('roles/{id}', [App\Http\Controllers\Admin\UserManagementController::class, 'showRole'])->name('roles.show')->middleware('role.access:administrador');
+    Route::put('roles/{id}', [App\Http\Controllers\Admin\UserManagementController::class, 'updateRole'])->name('roles.update')->middleware('role.access:administrador');
+    Route::delete('roles/{id}', [App\Http\Controllers\Admin\UserManagementController::class, 'destroyRole'])->name('roles.destroy')->middleware('role.access:administrador');
+    Route::put('roles/{id}/permissions', [App\Http\Controllers\Admin\UserManagementController::class, 'updateRolePermissions'])->name('roles.permissions.update')->middleware('role.access:administrador');
+    
+    // General routes
+    Route::get('permissions', [App\Http\Controllers\Admin\UserManagementController::class, 'getPermissions'])->name('permissions')->middleware('role.access:administrador');
+    Route::get('roles-list', [App\Http\Controllers\Admin\UserManagementController::class, 'getRoles'])->name('roles')->middleware('role.access:administrador');
+});
 
 // Documento Routes
 Route::middleware(['auth'])->group(function () {

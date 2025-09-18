@@ -16,6 +16,12 @@ class DashboardController extends Controller
      */
     public function index()
     {
+        // Verificar que el usuario tenga permiso (aunque ya esté en el middleware)
+        if (!auth()->user()->can('ver dashboard')) {
+            // Redirigir al primer módulo disponible
+            return app(HomeController::class)->index();
+        }
+        
         // Obtain counts
         $totalAlumnos = Alumno::count();
         $totalCarreras = Carrera::count();

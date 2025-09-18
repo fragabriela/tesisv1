@@ -266,11 +266,32 @@ class DocumentoController extends Controller
 
     public function getData(Request $request)
     {
-        $documentos = Documento::with(['tesis', 'alumno', 'tutor', 'usuarioCreacion'])
+        $user = auth()->user();
+        $query = Documento::with(['tesis', 'alumno', 'tutor', 'usuarioCreacion'])
             ->withCount('comentarios')
             ->select(['id', 'titulo', 'tesis_id', 'alumno_id', 'tutor_id', 'version', 'estado', 'fecha_ultima_edicion', 'created_at']);
 
-        return datatables($documentos)
+        // Filtrar según el rol del usuario
+        if ($user->hasRole('alumno')) {
+            // Alumno solo ve sus propios documentos
+            if ($user->alumno) {
+                $query->where('alumno_id', $user->alumno->id);
+            } else {
+                // Si no tiene alumno asociado, no ve nada
+                $query->where('id', 0);
+            }
+        } elseif ($user->hasRole('tutor')) {
+            // Tutor solo ve los documentos donde es tutor
+            if ($user->tutor) {
+                $query->where('tutor_id', $user->tutor->id);
+            } else {
+                // Si no tiene tutor asociado, no ve nada
+                $query->where('id', 0);
+            }
+        }
+        // Admin y coordinador ven todos los documentos (sin filtro adicional)
+
+        return datatables($query)
             ->addIndexColumn()
             ->addColumn('tesis', function ($documento) {
                 return $documento->tesis ? $documento->tesis->titulo : 'N/A';
@@ -298,15 +319,26 @@ class DocumentoController extends Controller
                 return $documento->fecha_ultima_edicion ? $documento->fecha_ultima_edicion->format('d/m/Y H:i') : $documento->created_at->format('d/m/Y H:i');
             })
             ->addColumn('actions', function ($documento) {
-                return '
-                    <div class="btn-group" role="group">
-                        <a href="' . route('documento.edit', $documento) . '" class="btn btn-sm btn-primary" title="Editar">
+                $user = auth()->user();
+                $actions = '';
+                
+                // Solo admin, coordinador y el alumno/tutor propietario pueden editar
+                if ($user->hasRole(['administrador', 'coordinador']) || 
+                    ($user->hasRole('alumno') && $user->alumno && $user->alumno->id == $documento->alumno_id) ||
+                    ($user->hasRole('tutor') && $user->tutor && $user->tutor->id == $documento->tutor_id)) {
+                    $actions .= '<a href="' . route('documento.edit', $documento) . '" class="btn btn-sm btn-primary" title="Editar">
                             <i class="fas fa-edit"></i>
-                        </a>
-                        <button class="btn btn-sm btn-danger eliminar-documento" onclick="eliminarDocumento(' . $documento->id . ')" title="Eliminar">
+                        </a>';
+                }
+                
+                // Solo admin y coordinador pueden eliminar
+                if ($user->hasRole(['administrador', 'coordinador'])) {
+                    $actions .= '<button class="btn btn-sm btn-danger eliminar-documento" onclick="eliminarDocumento(' . $documento->id . ')" title="Eliminar">
                             <i class="fas fa-trash"></i>
-                        </button>
-                    </div>';
+                        </button>';
+                }
+                
+                return '<div class="btn-group" role="group">' . $actions . '</div>';
             })
             ->rawColumns(['estado_badge', 'comentarios_count', 'actions'])
             ->make(true);

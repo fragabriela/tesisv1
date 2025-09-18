@@ -14,9 +14,36 @@ class LoginController extends Controller
     /**
      * Where to redirect users after login.
      *
-     * @var string
+     * @return string
      */
-    protected $redirectTo = '/dashboard';
+    protected function redirectTo()
+    {
+        $user = auth()->user();
+        
+        // Si puede ver dashboard, ir al dashboard
+        if ($user->can('ver dashboard')) {
+            return '/dashboard';
+        }
+        
+        // Si no puede ver dashboard, redirigir al primer módulo disponible
+        $availableModules = [
+            'ver tesis' => '/tesis',
+            'ver documentos' => '/documento', 
+            'ver proyectos' => '/proyectos',
+            'ver alumnos' => '/alumno',
+            'ver carreras' => '/carrera',
+            'ver tutores' => '/tutor',
+        ];
+        
+        foreach ($availableModules as $permission => $route) {
+            if ($user->can($permission)) {
+                return $route;
+            }
+        }
+        
+        // Si no tiene permisos para ningún módulo, mostrar mensaje
+        return '/no-permissions';
+    }
 
     /**
      * Create a new controller instance.
