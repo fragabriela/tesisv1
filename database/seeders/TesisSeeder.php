@@ -15,17 +15,17 @@ class TesisSeeder extends Seeder
      */
     public function run(): void
     {
-        // Get active alumnos and tutores
-        $alumnos = Alumno::where('estado', 'activo')->get();
-        $tutores = Tutor::where('activo', true)->get();
+        // Get alumnos and tutores that have user accounts
+        $alumnos = Alumno::whereNotNull('user_id')->get();
+        $tutores = Tutor::whereNotNull('user_id')->get();
         
         if ($alumnos->isEmpty()) {
-            $this->command->info('No hay alumnos activos en la base de datos. Ejecuta AlumnoSeeder primero.');
+            $this->command->info('No hay alumnos con usuarios asignados. Ejecuta UserRelationshipsSeeder primero.');
             return;
         }
         
         if ($tutores->isEmpty()) {
-            $this->command->info('No hay tutores activos en la base de datos. Ejecuta TutorSeeder primero.');
+            $this->command->info('No hay tutores con usuarios asignados. Ejecuta UserRelationshipsSeeder primero.');
             return;
         }
 
@@ -79,11 +79,21 @@ class TesisSeeder extends Seeder
             ],
         ];
 
-        // Assign each tesis to a random alumno and tutor
-        foreach ($tesis as $t) {
-            $t['alumno_id'] = $alumnos->random()->id;
-            $t['tutor_id'] = $tutores->random()->id;
+        // Assign each tesis to specific alumnos and tutores with user accounts
+        $tesisAsignadas = 0;
+        foreach ($tesis as $index => $t) {
+            if ($tesisAsignadas >= $alumnos->count()) break;
+            
+            $alumno = $alumnos[$tesisAsignadas];
+            $tutor = $tutores->random(); // Random tutor assignment
+            
+            $t['alumno_id'] = $alumno->id;
+            $t['tutor_id'] = $tutor->id;
+            
             Tesis::create($t);
+            
+            $this->command->info("Tesis '{$t['titulo']}' asignada a {$alumno->nombre} {$alumno->apellido}");
+            $tesisAsignadas++;
         }
     }
 }

@@ -67,6 +67,9 @@ class UserSeeder extends Seeder
             'configurar proyectos',
             'desplegar proyectos',
             'exportar proyectos',
+            
+            // Administración
+            'administrar usuarios',
         ];
 
         foreach ($permissions as $permission) {
@@ -110,12 +113,24 @@ class UserSeeder extends Seeder
         $tutorRole = Role::firstOrCreate(['name' => 'tutor']);
         $tutorRole->syncPermissions([
             'ver dashboard',
-            'ver alumnos',
             'ver tesis',
             'editar tesis',
             'ver documentos',
             'editar documentos',
             'ver proyectos',
+        ]);
+
+        // Alumno
+        $alumnoRole = Role::firstOrCreate(['name' => 'alumno']);
+        $alumnoRole->syncPermissions([
+            'ver dashboard',
+            'ver tesis',
+            'editar tesis',
+            'ver documentos',
+            'editar documentos',
+            'ver proyectos',
+            'crear proyectos',
+            'editar proyectos',
         ]);
 
         // Create admin user
@@ -147,5 +162,15 @@ class UserSeeder extends Seeder
             ]
         );
         $tutor->assignRole($tutorRole);
+
+        // Create alumno user
+        $alumno = User::firstOrCreate(
+            ['email' => 'alumno@example.com'],
+            [
+                'name' => 'Alumno Ejemplo',
+                'password' => Hash::make('password'),
+            ]
+        );
+        $alumno->assignRole($alumnoRole);
     }
 }

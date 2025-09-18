@@ -69,6 +69,7 @@ class Kernel extends HttpKernel
         'role' => \Spatie\Permission\Middlewares\RoleMiddleware::class,
         'permission.spatie' => \Spatie\Permission\Middlewares\PermissionMiddleware::class,
         'role_or_permission' => \Spatie\Permission\Middlewares\RoleOrPermissionMiddleware::class,
+        'role.access' => \App\Http\Middleware\RoleBasedAccess::class,
         'project.proxy' => \App\Http\Middleware\ProjectProxyMiddleware::class,
     ];
 }

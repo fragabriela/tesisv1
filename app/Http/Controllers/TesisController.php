@@ -31,9 +31,30 @@ class TesisController extends Controller
     public function index(Request $request)
     {
         if ($request->ajax()) {
-            $data = Tesis::with(['alumno', 'tutor']);
+            $user = auth()->user();
+            $query = Tesis::with(['alumno', 'tutor']);
             
-            return DataTables::of($data)
+            // Filtrar según el rol del usuario
+            if ($user->hasRole('alumno')) {
+                // Alumno solo ve sus propias tesis
+                if ($user->alumno) {
+                    $query->where('alumno_id', $user->alumno->id);
+                } else {
+                    // Si no tiene alumno asociado, no ve nada
+                    $query->where('id', 0);
+                }
+            } elseif ($user->hasRole('tutor')) {
+                // Tutor solo ve las tesis donde es tutor
+                if ($user->tutor) {
+                    $query->where('tutor_id', $user->tutor->id);
+                } else {
+                    // Si no tiene tutor asociado, no ve nada
+                    $query->where('id', 0);
+                }
+            }
+            // Admin y coordinador ven todas las tesis (sin filtro adicional)
+            
+            return DataTables::of($query)
                 ->addIndexColumn()
                 ->addColumn('alumno_nombre', function($row){
                     return $row->alumno->nombre . ' ' . $row->alumno->apellido;
@@ -60,9 +81,21 @@ class TesisController extends Controller
                     return '<span class="badge badge-' . $badgeClass . '">' . ucfirst(str_replace('_', ' ', $row->estado)) . '</span>';
                 })
                 ->addColumn('action', function($row){
+                    $user = auth()->user();
                     $actionBtn = '<a href="'.route('tesis.show', $row->id).'" class="view btn btn-info btn-sm">Ver</a> ';
-                    $actionBtn .= '<a href="'.route('tesis.edit', $row->id).'" class="edit btn btn-primary btn-sm">Editar</a> ';
-                    $actionBtn .= '<a href="javascript:void(0)" class="delete btn btn-danger btn-sm" onclick="eliminarTesis('.$row->id.')">Eliminar</a>';
+                    
+                    // Solo admin, coordinador y el alumno/tutor propietario pueden editar
+                    if ($user->hasRole(['administrador', 'coordinador']) || 
+                        ($user->hasRole('alumno') && $user->alumno && $user->alumno->id == $row->alumno_id) ||
+                        ($user->hasRole('tutor') && $user->tutor && $user->tutor->id == $row->tutor_id)) {
+                        $actionBtn .= '<a href="'.route('tesis.edit', $row->id).'" class="edit btn btn-primary btn-sm">Editar</a> ';
+                    }
+                    
+                    // Solo admin y coordinador pueden eliminar
+                    if ($user->hasRole(['administrador', 'coordinador'])) {
+                        $actionBtn .= '<a href="javascript:void(0)" class="delete btn btn-danger btn-sm" onclick="eliminarTesis('.$row->id.')">Eliminar</a>';
+                    }
+                    
                     return $actionBtn;
                 })
                 ->rawColumns(['estado_badge', 'action'])

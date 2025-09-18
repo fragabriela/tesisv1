@@ -388,20 +388,20 @@ Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard
 Route::get('/enviar-formulario', [MiFormularioController::class, 'index']);
 Route::post('/guardar-formulario', [MiFormularioController::class, 'guardar'])->name('formulario.guardar');
 
-// Tesis Routes
+// Tesis Routes - Todos los usuarios autenticados (con filtros por rol en el controlador)
 Route::middleware(['auth'])->group(function () {
     Route::get('tesis', [TesisController::class, 'index'])->name('tesis.index')->middleware('permission:ver tesis');
-    Route::get('tesis/create', [TesisController::class, 'create'])->name('tesis.create')->middleware('permission:crear tesis');
-    Route::post('tesis', [TesisController::class, 'store'])->name('tesis.store')->middleware('permission:crear tesis');
+    Route::get('tesis/create', [TesisController::class, 'create'])->name('tesis.create')->middleware('role.access:administrador,coordinador')->middleware('permission:crear tesis');
+    Route::post('tesis', [TesisController::class, 'store'])->name('tesis.store')->middleware('role.access:administrador,coordinador')->middleware('permission:crear tesis');
     Route::get('tesis/{tesis}', [TesisController::class, 'show'])->name('tesis.show')->middleware('permission:ver tesis');
     Route::get('tesis/{tesis}/edit', [TesisController::class, 'edit'])->name('tesis.edit')->middleware('permission:editar tesis');
     Route::put('tesis/{tesis}', [TesisController::class, 'update'])->name('tesis.update')->middleware('permission:editar tesis');
-    Route::delete('tesis/{tesis}', [TesisController::class, 'destroy'])->name('tesis.destroy')->middleware('permission:eliminar tesis');
-    Route::get('tesis/export-pdf', [TesisController::class, 'exportPDF'])->name('tesis.export.pdf')->middleware('permission:exportar tesis');
-    Route::get('tesis/export-excel', [TesisController::class, 'exportExcel'])->name('tesis.export.excel')->middleware('permission:exportar tesis');
+    Route::delete('tesis/{tesis}', [TesisController::class, 'destroy'])->name('tesis.destroy')->middleware('role.access:administrador,coordinador')->middleware('permission:eliminar tesis');
+    Route::get('tesis/export-pdf', [TesisController::class, 'exportPDF'])->name('tesis.export.pdf')->middleware('role.access:administrador,coordinador')->middleware('permission:exportar tesis');
+    Route::get('tesis/export-excel', [TesisController::class, 'exportExcel'])->name('tesis.export.excel')->middleware('role.access:administrador,coordinador')->middleware('permission:exportar tesis');
 });
-// Carrera Routes
-Route::middleware(['auth'])->group(function () {
+// Carrera Routes - Solo Admin y Coordinador
+Route::middleware(['auth', 'role.access:administrador,coordinador'])->group(function () {
     Route::get('carrera', [CarreraController::class, 'index'])->name('carrera.index')->middleware('permission:ver carreras');
     Route::get('carrera/create', [CarreraController::class, 'create'])->name('carrera.create')->middleware('permission:crear carreras');
     Route::post('carrera', [CarreraController::class, 'store'])->name('carrera.store')->middleware('permission:crear carreras');
@@ -414,8 +414,8 @@ Route::middleware(['auth'])->group(function () {
     Route::delete('carrera/{carrera}', [CarreraController::class, 'destroy'])->name('carrera.destroy')->middleware('permission:eliminar carreras');
 });
 
-// Alumno Routes
-Route::middleware(['auth'])->group(function () {
+// Alumno Routes - Solo Admin y Coordinador
+Route::middleware(['auth', 'role.access:administrador,coordinador'])->group(function () {
     Route::get('alumno', [AlumnoController::class, 'index'])->name('alumno.index')->middleware('permission:ver alumnos');
     Route::get('alumno/create', [AlumnoController::class, 'create'])->name('alumno.create')->middleware('permission:crear alumnos');
     Route::post('alumno', [AlumnoController::class, 'store'])->name('alumno.store')->middleware('permission:crear alumnos');
@@ -430,9 +430,8 @@ Route::middleware(['auth'])->group(function () {
     Route::get('alumno/delete/{id}', [AlumnoController::class, 'destroy'])->name('alumno.delete')->middleware('permission:eliminar alumnos');
 });
 
-// Tutor Routes
-// Tutor Routes
-Route::middleware(['auth'])->group(function () {
+// Tutor Routes - Solo Admin y Coordinador
+Route::middleware(['auth', 'role.access:administrador,coordinador'])->group(function () {
     Route::get('tutor', [TutorController::class, 'index'])->name('tutor.index')->middleware('permission:ver tutores');
     Route::get('tutor/create', [TutorController::class, 'create'])->name('tutor.create')->middleware('permission:crear tutores');
     Route::post('tutor', [TutorController::class, 'store'])->name('tutor.store')->middleware('permission:crear tutores');

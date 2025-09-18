@@ -14,6 +14,7 @@ class Tutor extends Model
     protected $table = 'tutores';
     
     protected $fillable = [
+        'user_id',
         'nombre',
         'apellido',
         'email',
@@ -22,6 +23,14 @@ class Tutor extends Model
         'biografia',
         'activo'
     ];
+
+    /**
+     * Get the user that owns the tutor.
+     */
+    public function user()
+    {
+        return $this->belongsTo(User::class);
+    }
 
     /**
      * Get the tesis for the tutor.

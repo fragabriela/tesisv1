@@ -13,6 +13,7 @@ class Alumno extends Model
     protected $table = 'alumnos';
     
     protected $fillable = [
+        'user_id',
         'nombre',
         'apellido',
         'email',
@@ -58,6 +59,14 @@ class Alumno extends Model
             \Log::error('Error in Alumno save: ' . $e->getMessage());
             throw $e;
         }
+    }
+
+    /**
+     * Get the user that owns the alumno.
+     */
+    public function user()
+    {
+        return $this->belongsTo(User::class);
     }
 
     /**
