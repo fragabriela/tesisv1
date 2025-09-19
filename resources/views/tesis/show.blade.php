@@ -116,36 +116,56 @@
         </div>
         
         <div class="col-md-4">
-            @if($tesis->documento_url)
-                <div class="card">
-                    <div class="card-header">
-                        <h3 class="card-title">Documento</h3>
-                    </div>
-                    <div class="card-body">
-                        <div class="text-center mb-3">
-                            <i class="fas fa-file-pdf fa-5x text-danger"></i>
-                        </div>
-                        <a href="{{ Storage::url($tesis->documento_url) }}" target="_blank" class="btn btn-info btn-block">
-                            <i class="fas fa-eye"></i> Ver Documento
-                        </a>
-                        <a href="{{ Storage::url($tesis->documento_url) }}" download class="btn btn-success btn-block mt-2">
-                            <i class="fas fa-download"></i> Descargar Documento
-                        </a>
-                    </div>
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">Documentos Colaborativos</h3>
                 </div>
-            @else
-                <div class="card">
-                    <div class="card-header">
-                        <h3 class="card-title">Documento</h3>
-                    </div>
-                    <div class="card-body">
+                <div class="card-body">
+                    @if($tesis->documentos->count() > 0)
+                        <div class="list-group">
+                            @foreach($tesis->documentos as $documento)
+                                <div class="list-group-item">
+                                    <div class="d-flex w-100 justify-content-between">
+                                        <h6 class="mb-1">{{ $documento->titulo }}</h6>
+                                        <small>v{{ $documento->version }}</small>
+                                    </div>
+                                    <p class="mb-1 text-muted small">{{ Str::limit($documento->descripcion, 60) }}</p>
+                                    <small>
+                                        <span class="badge badge-{{ $documento->estado == 'borrador' ? 'secondary' : ($documento->estado == 'aprobado' ? 'success' : 'warning') }}">
+                                            {{ ucfirst($documento->estado) }}
+                                        </span>
+                                        • {{ $documento->created_at->format('d/m/Y') }}
+                                    </small>
+                                    <div class="mt-2">
+                                        @can('ver documentos')
+                                            <a href="{{ route('documento.edit', $documento) }}" class="btn btn-sm btn-primary">
+                                                <i class="fas fa-edit"></i> Editar
+                                            </a>
+                                        @endcan
+                                    </div>
+                                </div>
+                            @endforeach
+                        </div>
+                        <div class="mt-3">
+                            @can('crear documentos')
+                                <a href="{{ route('documento.create') }}?tesis_id={{ $tesis->id }}" class="btn btn-success btn-block">
+                                    <i class="fas fa-plus"></i> Nuevo Documento
+                                </a>
+                            @endcan
+                        </div>
+                    @else
                         <div class="text-center">
                             <i class="fas fa-file-alt fa-5x text-secondary mb-3"></i>
-                            <p>No hay documento adjunto</p>
+                            <p>No hay documentos colaborativos</p>
+                            @can('crear documentos')
+                                <a href="{{ route('documento.create') }}?tesis_id={{ $tesis->id }}" class="btn btn-success">
+                                    <i class="fas fa-plus"></i> Crear Primer Documento
+                                </a>
+                            @endcan
                         </div>
-                    </div>
+                    @endif
                 </div>
-            @endif
+            </div>
             
             <div class="card mt-4">
                 <div class="card-header">

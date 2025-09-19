@@ -66,7 +66,8 @@
                                             id="tesis_id" name="tesis_id" required>
                                         <option value="">Seleccionar Tesis</option>
                                         @foreach($tesis as $t)
-                                            <option value="{{ $t->id }}" {{ old('tesis_id') == $t->id ? 'selected' : '' }}>
+                                            <option value="{{ $t->id }}" 
+                                                {{ (old('tesis_id', $tesisSeleccionada ?? '') == $t->id) ? 'selected' : '' }}>
                                                 {{ $t->titulo }} - {{ $t->alumno->nombre }} {{ $t->alumno->apellido }}
                                             </option>
                                         @endforeach

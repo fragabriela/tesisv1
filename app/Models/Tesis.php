@@ -62,6 +62,14 @@ class Tesis extends Model
     }
 
     /**
+     * Get the documentos associated with this tesis.
+     */
+    public function documentos()
+    {
+        return $this->hasMany(Documento::class, 'tesis_id');
+    }
+
+    /**
      * Get the project backups for this tesis.
      */
     public function backups()

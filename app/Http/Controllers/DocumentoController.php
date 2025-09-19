@@ -18,7 +18,7 @@ class DocumentoController extends Controller
         return view('documentos.index');
     }
 
-    public function create()
+    public function create(Request $request)
     {
         $user = auth()->user();
         
@@ -38,7 +38,10 @@ class DocumentoController extends Controller
             $tesis = Tesis::with(['alumno', 'tutor'])->get();
         }
         
-        return view('documentos.create', compact('tesis'));
+        // Si viene de la vista de tesis específica, preseleccionar esa tesis
+        $tesisSeleccionada = $request->get('tesis_id');
+        
+        return view('documentos.create', compact('tesis', 'tesisSeleccionada'));
     }
 
     public function store(Request $request)

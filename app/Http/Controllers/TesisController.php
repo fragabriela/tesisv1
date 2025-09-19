@@ -174,7 +174,9 @@ class TesisController extends Controller
      */
     public function show(string $id)
     {
-        $tesis = Tesis::with(['alumno', 'tutor'])->findOrFail($id);
+        $tesis = Tesis::with(['alumno', 'tutor', 'documentos' => function($query) {
+            $query->orderBy('created_at', 'desc');
+        }])->findOrFail($id);
         
         // Verificar el estado del contenedor si existe
         if (!empty($tesis->container_id)) {
