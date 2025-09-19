@@ -20,7 +20,24 @@ class DocumentoController extends Controller
 
     public function create()
     {
-        $tesis = Tesis::with(['alumno', 'tutor'])->get();
+        $user = auth()->user();
+        
+        // Filtrar tesis según el rol del usuario
+        if ($user->hasRole('alumno') && $user->alumno) {
+            // Si es alumno, solo mostrar sus propias tesis
+            $tesis = Tesis::with(['alumno', 'tutor'])
+                          ->where('alumno_id', $user->alumno->id)
+                          ->get();
+        } elseif ($user->hasRole('tutor') && $user->tutor) {
+            // Si es tutor, solo mostrar las tesis donde es tutor
+            $tesis = Tesis::with(['alumno', 'tutor'])
+                          ->where('tutor_id', $user->tutor->id)
+                          ->get();
+        } else {
+            // Admin y coordinador ven todas las tesis
+            $tesis = Tesis::with(['alumno', 'tutor'])->get();
+        }
+        
         return view('documentos.create', compact('tesis'));
     }
 

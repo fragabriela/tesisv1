@@ -61,18 +61,34 @@
                         <div class="col-md-6">
                             <div class="form-group">
                                 <label for="tesis_id">Tesis Asociada <span class="text-danger">*</span></label>
-                                <select class="form-control @error('tesis_id') is-invalid @enderror" 
-                                        id="tesis_id" name="tesis_id" required>
-                                    <option value="">Seleccionar Tesis</option>
-                                    @foreach($tesis as $t)
-                                        <option value="{{ $t->id }}" {{ old('tesis_id') == $t->id ? 'selected' : '' }}>
-                                            {{ $t->titulo }} - {{ $t->alumno->nombre }} {{ $t->alumno->apellido }}
-                                        </option>
-                                    @endforeach
-                                </select>
-                                @error('tesis_id')
-                                    <span class="invalid-feedback">{{ $message }}</span>
-                                @enderror
+                                @if($tesis->count() > 0)
+                                    <select class="form-control @error('tesis_id') is-invalid @enderror" 
+                                            id="tesis_id" name="tesis_id" required>
+                                        <option value="">Seleccionar Tesis</option>
+                                        @foreach($tesis as $t)
+                                            <option value="{{ $t->id }}" {{ old('tesis_id') == $t->id ? 'selected' : '' }}>
+                                                {{ $t->titulo }} - {{ $t->alumno->nombre }} {{ $t->alumno->apellido }}
+                                            </option>
+                                        @endforeach
+                                    </select>
+                                    @error('tesis_id')
+                                        <span class="invalid-feedback">{{ $message }}</span>
+                                    @enderror
+                                @else
+                                    <div class="alert alert-warning">
+                                        <i class="fas fa-exclamation-triangle"></i>
+                                        <strong>No hay tesis disponibles.</strong><br>
+                                        @if(auth()->user()->hasRole('alumno'))
+                                            Como alumno, solo puedes crear documentos para tus propias tesis. 
+                                            Contacta a tu coordinador si necesitas que se te asigne una tesis.
+                                        @elseif(auth()->user()->hasRole('tutor'))
+                                            Como tutor, solo puedes crear documentos para las tesis donde eres tutor asignado.
+                                        @else
+                                            No hay tesis registradas en el sistema.
+                                        @endif
+                                    </div>
+                                    <input type="hidden" name="tesis_id" value="">
+                                @endif
                             </div>
                         </div>
                     </div>
@@ -124,9 +140,16 @@
                 </div>
 
                 <div class="card-footer">
-                    <button type="submit" class="btn btn-primary">
-                        <i class="fas fa-save"></i> Crear Documento
-                    </button>
+                    @if($tesis->count() > 0)
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-save"></i> Crear Documento
+                        </button>
+                    @else
+                        <button type="button" class="btn btn-primary" disabled>
+                            <i class="fas fa-save"></i> Crear Documento
+                        </button>
+                        <small class="text-muted ml-2">No se puede crear un documento sin una tesis asociada</small>
+                    @endif
                     <a href="{{ route('documento.index') }}" class="btn btn-secondary">
                         <i class="fas fa-arrow-left"></i> Volver
                     </a>
