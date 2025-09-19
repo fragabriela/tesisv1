@@ -12,18 +12,26 @@
             <div class="d-flex justify-content-between">
                 <h3 class="card-title">Lista de Tutores</h3>
                 <div>
-                    <button type="button" class="btn btn-info" data-toggle="modal" data-target="#importTutoresModal">
-                        <i class="fas fa-file-import"></i> Importar Excel
-                    </button>
-                    <a href="{{ route('tutor.export.pdf') }}" class="btn btn-danger">
-                        <i class="fas fa-file-pdf"></i> PDF
-                    </a>
-                    <a href="{{ route('tutor.export.excel') }}" class="btn btn-success">
-                        <i class="fas fa-file-excel"></i> Excel
-                    </a>
-                    <a href="{{ route('tutor.create') }}" class="btn btn-primary">
-                        <i class="fas fa-plus"></i> Nuevo Tutor
-                    </a>
+                    @can('crear tutores')
+                        <button type="button" class="btn btn-info" data-toggle="modal" data-target="#importTutoresModal">
+                            <i class="fas fa-file-import"></i> Importar Excel
+                        </button>
+                    @endcan
+                    
+                    @can('exportar tutores')
+                        <a href="{{ route('tutor.export.pdf') }}" class="btn btn-danger">
+                            <i class="fas fa-file-pdf"></i> PDF
+                        </a>
+                        <a href="{{ route('tutor.export.excel') }}" class="btn btn-success">
+                            <i class="fas fa-file-excel"></i> Excel
+                        </a>
+                    @endcan
+                    
+                    @can('crear tutores')
+                        <a href="{{ route('tutor.create') }}" class="btn btn-primary">
+                            <i class="fas fa-plus"></i> Nuevo Tutor
+                        </a>
+                    @endcan
                 </div>
             </div>
         </div>

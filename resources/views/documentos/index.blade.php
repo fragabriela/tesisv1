@@ -13,9 +13,11 @@
             <div class="card-header">
                 <h3 class="card-title">Lista de Documentos</h3>
                 <div class="card-tools">
-                    <a href="{{ route('documento.create') }}" class="btn btn-primary">
-                        <i class="fas fa-plus"></i> Nuevo Documento
-                    </a>
+                    @can('crear documentos')
+                        <a href="{{ route('documento.create') }}" class="btn btn-primary">
+                            <i class="fas fa-plus"></i> Nuevo Documento
+                        </a>
+                    @endcan
                 </div>
             </div>
             <div class="card-body">

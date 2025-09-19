@@ -9,22 +9,27 @@
         </div>
         <div class="col-sm-6">
             <div class="float-sm-right">
-                <a href="{{ route('tesis.create') }}" class="btn btn-success">
-                    <i class="fas fa-plus"></i> Nueva Tesis
-                </a>
-                <div class="btn-group">
-                    <button type="button" class="btn btn-info dropdown-toggle" data-toggle="dropdown" aria-expanded="false">
-                        <i class="fas fa-download"></i> Exportar
-                    </button>
-                    <div class="dropdown-menu">
-                        <a class="dropdown-item" href="{{ route('tesis.export.pdf') }}">
-                            <i class="far fa-file-pdf text-danger"></i> Exportar a PDF
-                        </a>
-                        <a class="dropdown-item" href="{{ route('tesis.export.excel') }}">
-                            <i class="far fa-file-excel text-success"></i> Exportar a Excel
-                        </a>
+                @can('crear tesis')
+                    <a href="{{ route('tesis.create') }}" class="btn btn-success">
+                        <i class="fas fa-plus"></i> Nueva Tesis
+                    </a>
+                @endcan
+                
+                @can('exportar tesis')
+                    <div class="btn-group">
+                        <button type="button" class="btn btn-info dropdown-toggle" data-toggle="dropdown" aria-expanded="false">
+                            <i class="fas fa-download"></i> Exportar
+                        </button>
+                        <div class="dropdown-menu">
+                            <a class="dropdown-item" href="{{ route('tesis.export.pdf') }}">
+                                <i class="far fa-file-pdf text-danger"></i> Exportar a PDF
+                            </a>
+                            <a class="dropdown-item" href="{{ route('tesis.export.excel') }}">
+                                <i class="far fa-file-excel text-success"></i> Exportar a Excel
+                            </a>
+                        </div>
                     </div>
-                </div>
+                @endcan
             </div>
         </div>
     </div>

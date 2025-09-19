@@ -12,19 +12,27 @@
             <div class="d-flex justify-content-between">
                 <h3 class="card-title">Lista de Carreras</h3>
                 <div>
-                    <!-- Import Excel Button -->
-                    <button type="button" class="btn btn-info" data-toggle="modal" data-target="#importModal">
-                        <i class="fas fa-file-import"></i> Importar Excel
-                    </button>
-                    <a href="{{ route('carrera.export.pdf') }}" class="btn btn-danger">
-                        <i class="fas fa-file-pdf"></i> PDF
-                    </a>
-                    <a href="{{ route('carrera.export.excel') }}" class="btn btn-success">
-                        <i class="fas fa-file-excel"></i> Excel
-                    </a>
-                    <a href="{{ route('carrera.create') }}" class="btn btn-primary">
-                        <i class="fas fa-plus"></i> Nueva Carrera
-                    </a>
+                    @can('crear carreras')
+                        <!-- Import Excel Button -->
+                        <button type="button" class="btn btn-info" data-toggle="modal" data-target="#importModal">
+                            <i class="fas fa-file-import"></i> Importar Excel
+                        </button>
+                    @endcan
+                    
+                    @can('exportar carreras')
+                        <a href="{{ route('carrera.export.pdf') }}" class="btn btn-danger">
+                            <i class="fas fa-file-pdf"></i> PDF
+                        </a>
+                        <a href="{{ route('carrera.export.excel') }}" class="btn btn-success">
+                            <i class="fas fa-file-excel"></i> Excel
+                        </a>
+                    @endcan
+                    
+                    @can('crear carreras')
+                        <a href="{{ route('carrera.create') }}" class="btn btn-primary">
+                            <i class="fas fa-plus"></i> Nueva Carrera
+                        </a>
+                    @endcan
                 </div>
             </div>
         </div>

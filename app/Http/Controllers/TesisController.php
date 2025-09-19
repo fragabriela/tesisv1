@@ -82,17 +82,20 @@ class TesisController extends Controller
                 })
                 ->addColumn('action', function($row){
                     $user = auth()->user();
-                    $actionBtn = '<a href="'.route('tesis.show', $row->id).'" class="view btn btn-info btn-sm">Ver</a> ';
+                    $actionBtn = '';
                     
-                    // Solo admin, coordinador y el alumno/tutor propietario pueden editar
-                    if ($user->hasRole(['administrador', 'coordinador']) || 
-                        ($user->hasRole('alumno') && $user->alumno && $user->alumno->id == $row->alumno_id) ||
-                        ($user->hasRole('tutor') && $user->tutor && $user->tutor->id == $row->tutor_id)) {
+                    // Ver siempre está disponible si puede ver tesis
+                    if ($user->can('ver tesis')) {
+                        $actionBtn .= '<a href="'.route('tesis.show', $row->id).'" class="view btn btn-info btn-sm">Ver</a> ';
+                    }
+                    
+                    // Editar: necesita permiso específico
+                    if ($user->can('editar tesis')) {
                         $actionBtn .= '<a href="'.route('tesis.edit', $row->id).'" class="edit btn btn-primary btn-sm">Editar</a> ';
                     }
                     
-                    // Solo admin y coordinador pueden eliminar
-                    if ($user->hasRole(['administrador', 'coordinador'])) {
+                    // Eliminar: necesita permiso específico
+                    if ($user->can('eliminar tesis')) {
                         $actionBtn .= '<a href="javascript:void(0)" class="delete btn btn-danger btn-sm" onclick="eliminarTesis('.$row->id.')">Eliminar</a>';
                     }
                     
