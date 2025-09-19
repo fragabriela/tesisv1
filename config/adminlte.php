@@ -362,18 +362,18 @@ return [
             'icon' => 'fas fa-fw fa-project-diagram',
             'can' => 'ver proyectos',
         ],
-        [
-            'text' => 'Monitor de Proyectos',
-            'route' => 'proyectos.monitor',
-            'icon' => 'fas fa-fw fa-server',
-            'can' => 'monitorear proyectos',
-        ],
-        [
-            'text' => 'Diagnóstico de Docker',
-            'route' => 'proyectos.docker-troubleshoot',
-            'icon' => 'fab fa-fw fa-docker',
-            'can' => 'configurar proyectos',
-        ],
+        // [
+        //     'text' => 'Monitor de Proyectos',
+        //     'route' => 'proyectos.monitor',
+        //     'icon' => 'fas fa-fw fa-server',
+        //     'can' => 'monitorear proyectos',
+        // ],
+        // [
+        //     'text' => 'Diagnóstico de Docker',
+        //     'route' => 'proyectos.docker-troubleshoot',
+        //     'icon' => 'fab fa-fw fa-docker',
+        //     'can' => 'configurar proyectos',
+        // ],
         
         ['header' => 'HERRAMIENTAS DE DESARROLLO', 'can' => 'ver dashboard'],
         [

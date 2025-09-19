@@ -21,13 +21,24 @@ class ProyectoController extends Controller
      * @return \Illuminate\View\View
      */    public function index()
     {
-        // Obtener todas las tesis, incluyendo los recién creados sin GitHub o contenedor
+        $user = auth()->user();
+        
+        // Filtrar proyectos según el rol del usuario
         $proyectos = Tesis::query();
+        
+        if ($user->hasRole('alumno') && $user->alumno) {
+            // Si es alumno, solo mostrar sus propios proyectos/tesis
+            $proyectos->where('alumno_id', $user->alumno->id);
+        } elseif ($user->hasRole('tutor') && $user->tutor) {
+            // Si es tutor, solo mostrar las tesis donde es tutor
+            $proyectos->where('tutor_id', $user->tutor->id);
+        }
+        // Admin y coordinador ven todos los proyectos (sin filtro adicional)
         
         // Si el usuario no tiene permiso para ver proyectos no visibles, filtramos
         // Comentado temporalmente debido a problemas con extensiones PHP
         // if (!auth()->user()->can('ver proyectos no visibles')) {
-            // $query->where('is_visible', true);
+            // $proyectos->where('is_visible', true);
         // }
         
         $proyectos = $proyectos->with(['alumno', 'tutor'])->get();
@@ -42,9 +53,24 @@ class ProyectoController extends Controller
      */
     public function create()
     {
-        // Obtener alumnos y tutores para el formulario
-        $alumnos = \App\Models\Alumno::where('estado', 'activo')->get();
-        $tutores = \App\Models\Tutor::where('activo', true)->get();
+        $user = auth()->user();
+        
+        // Filtrar alumnos y tutores según el rol del usuario
+        if ($user->hasRole('alumno') && $user->alumno) {
+            // Si es alumno, solo puede crear proyectos para sí mismo
+            $alumnos = collect([$user->alumno]);
+            $tutores = \App\Models\Tutor::where('activo', true)->get();
+        } elseif ($user->hasRole('tutor') && $user->tutor) {
+            // Si es tutor, puede ver alumnos donde es tutor asignado
+            $alumnos = \App\Models\Alumno::whereHas('tesis', function($query) use ($user) {
+                $query->where('tutor_id', $user->tutor->id);
+            })->where('estado', 'activo')->get();
+            $tutores = collect([$user->tutor]);
+        } else {
+            // Admin y coordinador ven todos
+            $alumnos = \App\Models\Alumno::where('estado', 'activo')->get();
+            $tutores = \App\Models\Tutor::where('activo', true)->get();
+        }
         
         return view('proyectos.create', compact('alumnos', 'tutores'));
     }
@@ -451,6 +477,11 @@ class ProyectoController extends Controller
     {
         $tesis = Tesis::with(['alumno', 'tutor'])->findOrFail($id);
         
+        // Verificar acceso según el rol del usuario
+        if (!$this->checkProjectAccess($tesis)) {
+            abort(403, 'No tienes acceso a este proyecto.');
+        }
+        
         if (empty($tesis->container_id)) {
             return redirect()->route('proyectos.deploy', $tesis->id)
                 ->with('error', 'Primero debe desplegar el proyecto');
@@ -796,5 +827,32 @@ class ProyectoController extends Controller
         // Este método solo se llama para resolver la ruta y validar el proyecto
         
         return response()->make('Redireccionando...', 200);
+    }
+    
+    /**
+     * Verificar si el usuario tiene acceso a la tesis/proyecto
+     */
+    private function checkProjectAccess($tesis, $user = null)
+    {
+        if (!$user) {
+            $user = auth()->user();
+        }
+        
+        // Admin y coordinador tienen acceso a todo
+        if ($user->hasRole(['administrador', 'coordinador'])) {
+            return true;
+        }
+        
+        // Alumno solo puede acceder a sus propias tesis
+        if ($user->hasRole('alumno') && $user->alumno) {
+            return $user->alumno->id == $tesis->alumno_id;
+        }
+        
+        // Tutor solo puede acceder a tesis donde es tutor
+        if ($user->hasRole('tutor') && $user->tutor) {
+            return $user->tutor->id == $tesis->tutor_id;
+        }
+        
+        return false;
     }
 }
