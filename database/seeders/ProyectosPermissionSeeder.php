@@ -49,9 +49,9 @@ class ProyectosPermissionSeeder extends Seeder
         
         // Asignar permisos a roles
         if (in_array('administrador', $existingRoles) || Role::where('name', 'administrador')->exists()) {
-            $adminRole = Role::findByName('administrador');
-            $adminRole->syncPermissions($existingPermissions);
-            $this->command->info("Permisos asignados al rol 'administrador'");
+            // NO modificamos el rol administrador aquí
+            // El AdminPermissionSeeder se encargará de asegurar que tenga TODOS los permisos
+            $this->command->info("Rol 'administrador' encontrado - se configurará en AdminPermissionSeeder");
         }
         
         if (in_array('profesor', $existingRoles) || Role::where('name', 'profesor')->exists()) {

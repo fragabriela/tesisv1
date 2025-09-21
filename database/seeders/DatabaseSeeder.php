@@ -20,6 +20,10 @@ class DatabaseSeeder extends Seeder
             TesisSeeder::class,
             ProyectosPermissionSeeder::class,
             FixEstadoValuesSeeder::class,
+            // IMPORTANTE: AdminPermissionSeeder DEBE ejecutarse AL FINAL
+            // para garantizar que el admin tenga TODOS los permisos
+            // creados por cualquier seeder anterior
+            AdminPermissionSeeder::class,
         ]);
     }
 }

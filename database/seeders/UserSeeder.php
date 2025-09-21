@@ -29,6 +29,7 @@ class UserSeeder extends Seeder
             'editar alumnos',
             'eliminar alumnos',
             'exportar alumnos',
+            'importar alumnos',
             
             // Carreras
             'ver carreras',
@@ -36,6 +37,7 @@ class UserSeeder extends Seeder
             'editar carreras',
             'eliminar carreras',
             'exportar carreras',
+            'importar carreras',
             
             // Tutores
             'ver tutores',
@@ -43,6 +45,7 @@ class UserSeeder extends Seeder
             'editar tutores',
             'eliminar tutores',
             'exportar tutores',
+            'importar tutores',
             
             // Tesis
             'ver tesis',
@@ -67,21 +70,29 @@ class UserSeeder extends Seeder
             'configurar proyectos',
             'desplegar proyectos',
             'exportar proyectos',
+            'ver proyectos no visibles',
+            'gestionar proyectos',
             
             // Administración
             'administrar usuarios',
+            'gestionar roles',
+            'gestionar permisos',
         ];
 
         foreach ($permissions as $permission) {
             Permission::firstOrCreate(['name' => $permission]);
         }
 
-        // Create roles and assign permissions ONLY if they don't exist or have no permissions
-        // Admin
+        // Create roles and assign permissions
+        // ADMIN - SIEMPRE tiene TODOS los permisos (incluso nuevos que se agreguen)
+        // Esto asegura que el administrador tenga acceso completo sin importar qué permisos se agreguen
         $adminRole = Role::firstOrCreate(['name' => 'administrador']);
-        if ($adminRole->permissions()->count() == 0) {
-            $adminRole->syncPermissions(Permission::all());
-        }
+        
+        // Primero creamos todos los permisos base
+        $allPermissions = Permission::all();
+        $adminRole->syncPermissions($allPermissions);
+        
+        $this->command->info('✅ Administrador configurado con TODOS los permisos (' . $allPermissions->count() . ' permisos)');
 
         // Coordinador
         $coordinadorRole = Role::firstOrCreate(['name' => 'coordinador']);
@@ -164,7 +175,17 @@ class UserSeeder extends Seeder
                 'password' => Hash::make('password'),
             ]
         );
-        $admin->assignRole($adminRole);
+        
+        // Asegurar que el admin tenga el rol de administrador
+        if (!$admin->hasRole('administrador')) {
+            $admin->assignRole($adminRole);
+        }
+        
+        // FORZAR que el usuario admin tenga TODOS los permisos directamente
+        // Esto es una doble garantía: permisos por rol + permisos directos
+        $admin->syncPermissions(Permission::all());
+        
+        $this->command->info('✅ Usuario admin@example.com configurado con rol administrador y TODOS los permisos (' . $admin->getAllPermissions()->count() . ' permisos)');
 
         // Create coordinador user
         $coordinador = User::firstOrCreate(
