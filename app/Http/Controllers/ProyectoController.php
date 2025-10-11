@@ -3,17 +3,17 @@
 namespace App\Http\Controllers;
 
 use App\Models\Tesis;
-use App\Services\DockerService;
+use App\Services\LaragonService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 
 class ProyectoController extends Controller
 {
-    protected $dockerService;
+    protected $laragonService;
     
-    public function __construct(DockerService $dockerService)
+    public function __construct(LaragonService $laragonService)
     {
-        $this->dockerService = $dockerService;
+        $this->laragonService = $laragonService;
     }
       /**
      * Mostrar el listado de proyectos
@@ -177,7 +177,7 @@ class ProyectoController extends Controller
         
         try {
             // Clonar el repositorio
-            $repoPath = $this->dockerService->cloneRepository($tesis->github_repo);
+            $repoPath = $this->laragonService->cloneRepository($tesis->github_repo);
             
             if (!$repoPath) {
                 return redirect()->back()
@@ -185,7 +185,7 @@ class ProyectoController extends Controller
             }
             
             // Detectar el tipo de proyecto
-            $projectType = $this->dockerService->detectProjectType($repoPath);
+            $projectType = $this->laragonService->detectProjectType($repoPath);
             
             // Actualizar la tesis con la información del proyecto
             $tesis->project_repo_path = $repoPath;
@@ -226,7 +226,6 @@ class ProyectoController extends Controller
             'tesis_id' => $id,
             'method' => $request->method(),
             'has_backup_file' => $request->hasFile('backup_file'),
-            'existing_backup_id' => $request->input('existing_backup_id'),
             'all_input' => $request->all()
         ]);
         
@@ -240,50 +239,75 @@ class ProyectoController extends Controller
                     ->with('error', 'Primero debe clonar el repositorio');
             }
 
-            // PROCESAMIENTO SIMPLIFICADO DE ARCHIVOS (sin Storage)
-            if ($request->hasFile('backup_file')) {
-                Log::info('Archivo de backup detectado');
+            // VALIDAR QUE SE HAYA SUBIDO UN ARCHIVO (OBLIGATORIO)
+            if (!$request->hasFile('backup_file')) {
+                Log::warning('No se proporcionó archivo de backup', ['tesis_id' => $id]);
+                return redirect()->back()
+                    ->with('error', 'Es obligatorio subir un archivo de backup para desplegar el proyecto.');
+            }
+
+            // PROCESAMIENTO DEL ARCHIVO DE BACKUP
+            Log::info('Archivo de backup detectado');
+            
+            $backupFile = $request->file('backup_file');
+            $originalName = $backupFile->getClientOriginalName();
+            $fileSize = $backupFile->getSize();
+            $fileExtension = strtolower($backupFile->getClientOriginalExtension());
+            
+            Log::info('Detalles del archivo', [
+                'name' => $originalName,
+                'size' => $fileSize,
+                'extension' => $fileExtension
+            ]);
+            
+            // Validación básica sin mimes (que requiere fileinfo)
+            $allowedExtensions = ['zip', 'tar', 'gz', 'sql'];
+            if (!in_array($fileExtension, $allowedExtensions)) {
+                Log::error('Extensión no permitida', ['extension' => $fileExtension]);
+                return redirect()->back()
+                    ->with('error', 'Tipo de archivo no permitido. Permitidos: ' . implode(', ', $allowedExtensions));
+            }
+            
+            if ($fileSize > 100 * 1024 * 1024) { // 100MB
+                Log::error('Archivo muy grande', ['size' => $fileSize]);
+                return redirect()->back()
+                    ->with('error', 'El archivo es muy grande. Máximo 100MB.');
+            }
+            
+            // Crear directorio temporal manualmente
+            $tempDir = storage_path('app/temp-backups');
+            if (!file_exists($tempDir)) {
+                mkdir($tempDir, 0755, true);
+            }
+            
+            // Mover archivo manualmente
+            $tempFileName = 'backup_' . time() . '_' . uniqid() . '.' . $fileExtension;
+            $tempPath = $tempDir . '/' . $tempFileName;
+            
+            if ($backupFile->move($tempDir, $tempFileName)) {
+                Log::info('Archivo movido exitosamente', ['temp_path' => $tempPath]);
                 
-                $backupFile = $request->file('backup_file');
-                $originalName = $backupFile->getClientOriginalName();
-                $fileSize = $backupFile->getSize();
-                $fileExtension = strtolower($backupFile->getClientOriginalExtension());
+                // PRIMERO: DESPLEGAR EL PROYECTO
+                Log::info('=== INICIANDO DESPLIEGUE DEL PROYECTO ===');
                 
-                Log::info('Detalles del archivo', [
-                    'name' => $originalName,
-                    'size' => $fileSize,
-                    'extension' => $fileExtension
-                ]);
-                
-                // Validación básica sin mimes (que requiere fileinfo)
-                $allowedExtensions = ['zip', 'tar', 'gz', 'sql'];
-                if (!in_array($fileExtension, $allowedExtensions)) {
-                    Log::error('Extensión no permitida', ['extension' => $fileExtension]);
-                    return redirect()->back()
-                        ->with('error', 'Tipo de archivo no permitido. Permitidos: ' . implode(', ', $allowedExtensions));
-                }
-                
-                if ($fileSize > 100 * 1024 * 1024) { // 100MB
-                    Log::error('Archivo muy grande', ['size' => $fileSize]);
-                    return redirect()->back()
-                        ->with('error', 'El archivo es muy grande. Máximo 100MB.');
-                }
-                
-                // Crear directorio temporal manualmente
-                $tempDir = storage_path('app/temp-backups');
-                if (!file_exists($tempDir)) {
-                    mkdir($tempDir, 0755, true);
-                }
-                
-                // Mover archivo manualmente
-                $tempFileName = 'backup_' . time() . '_' . uniqid() . '.' . $fileExtension;
-                $tempPath = $tempDir . '/' . $tempFileName;
-                
-                if ($backupFile->move($tempDir, $tempFileName)) {
-                    Log::info('Archivo movido exitosamente', ['temp_path' => $tempPath]);
+                try {
+                    $deployResult = $this->executeProjectDeployment($id);
                     
-                    // DESPLIEGUE REAL CON DOCKER
-                    Log::info('=== INICIANDO DESPLIEGUE REAL ===');
+                    if (!$deployResult) {
+                        Log::error('❌ Error en el despliegue del proyecto');
+                        // Limpiar archivo temporal
+                        if (file_exists($tempPath)) {
+                            unlink($tempPath);
+                        }
+                        return redirect()->back()
+                            ->with('error', 'Error durante el despliegue del proyecto');
+                    }
+                    
+                    Log::info('✅ Proyecto desplegado exitosamente, iniciando restore de backup');
+                    
+                    // SEGUNDO: RESTAURAR EL BACKUP
+                    $restoreSuccess = false;
+                    $restoreMessage = '';
                     
                     try {
                         // Crear registro de backup temporal
@@ -300,53 +324,77 @@ class ProyectoController extends Controller
                         // Usar el ProjectBackupService para restaurar
                         $backupService = app(\App\Services\ProjectBackupService::class);
                         
-                        if ($fileExtension === 'sql') {
-                            Log::info('Restaurando base de datos SQL', ['file' => $tempPath]);
-                            $result = $backupService->restoreBackupToContainer($tesis, $backupRecord);
-                        } else {
-                            Log::info('Restaurando backup completo', ['file' => $tempPath]);
-                            $result = $backupService->restoreBackupToContainer($tesis, $backupRecord);
-                        }
-                        
-                        if ($result) {
-                            Log::info('✅ Despliegue completado exitosamente');
-                            
-                            // Limpiar archivo temporal después del éxito
-                            if (file_exists($tempPath)) {
-                                unlink($tempPath);
-                                Log::info('Archivo temporal eliminado', ['temp_path' => $tempPath]);
-                            }
-                            
-                            return redirect()->route('proyectos.show', $tesis->id)
-                                ->with('success', "Proyecto desplegado y base de datos restaurada exitosamente desde: {$originalName}");
-                        } else {
-                            Log::error('❌ Error en el despliegue');
-                            return redirect()->back()
-                                ->with('error', 'Error durante el despliegue del proyecto');
-                        }
-                        
-                    } catch (\Exception $deployError) {
-                        Log::error('Error durante el despliegue', [
-                            'error' => $deployError->getMessage(),
-                            'file' => $deployError->getFile(),
-                            'line' => $deployError->getLine()
+                        Log::info('Iniciando restauración de backup', [
+                            'type' => $fileExtension,
+                            'file' => $tempPath
                         ]);
                         
-                        return redirect()->back()
-                            ->with('error', 'Error durante el despliegue: ' . $deployError->getMessage());
-                    }
+                        $restoreResult = $backupService->restoreBackupToContainer($tesis, $backupRecord);
                         
-                } else {
-                    Log::error('Error al mover archivo');
+                        if ($restoreResult && isset($restoreResult['success']) && $restoreResult['success']) {
+                            $restoreSuccess = true;
+                            $restoreMessage = $restoreResult['message'] ?? 'Backup restaurado exitosamente';
+                            Log::info('✅ Backup restaurado exitosamente', ['message' => $restoreMessage]);
+                        } else {
+                            $restoreMessage = $restoreResult['message'] ?? 'Error desconocido en la restauración';
+                            Log::error('❌ Error en la restauración del backup', ['message' => $restoreMessage]);
+                        }
+                        
+                    } catch (\Exception $restoreError) {
+                        $restoreMessage = 'Excepción durante la restauración: ' . $restoreError->getMessage();
+                        Log::error('❌ Excepción durante la restauración del backup', [
+                            'error' => $restoreError->getMessage(),
+                            'file' => $restoreError->getFile(),
+                            'line' => $restoreError->getLine()
+                        ]);
+                    }
+                    
+                    // Limpiar archivo temporal
+                    if (file_exists($tempPath)) {
+                        unlink($tempPath);
+                        Log::info('Archivo temporal eliminado', ['temp_path' => $tempPath]);
+                    }
+                    
+                    // PREPARAR MENSAJE FINAL
+                    if ($restoreSuccess) {
+                        // Mark backup as restored and environment as configured
+                        $tesis->update([
+                            'backup_restored' => true,
+                            'env_configured' => true,
+                            'backup_restored_at' => now(),
+                        ]);
+                        
+                        $finalMessage = "✅ Proyecto desplegado exitosamente y backup restaurado correctamente desde: {$originalName}. {$restoreMessage}";
+                        $alertType = 'success';
+                    } else {
+                        $finalMessage = "⚠️ Proyecto desplegado exitosamente, pero hubo un problema con la restauración del backup desde: {$originalName}. Error: {$restoreMessage}";
+                        $alertType = 'warning';
+                    }
+                    
+                    return redirect()->route('proyectos.show', $tesis->id)
+                        ->with($alertType, $finalMessage);
+                        
+                } catch (\Exception $deployError) {
+                    Log::error('Error durante el despliegue', [
+                        'error' => $deployError->getMessage(),
+                        'file' => $deployError->getFile(),
+                        'line' => $deployError->getLine()
+                    ]);
+                    
+                    // Limpiar archivo temporal
+                    if (file_exists($tempPath)) {
+                        unlink($tempPath);
+                    }
+                    
                     return redirect()->back()
-                        ->with('error', 'Error al procesar el archivo de backup');
+                        ->with('error', 'Error durante el despliegue: ' . $deployError->getMessage());
                 }
+                    
+            } else {
+                Log::error('Error al mover archivo');
+                return redirect()->back()
+                    ->with('error', 'Error al procesar el archivo de backup');
             }
-            
-            // Si no hay archivo, desplegar sin backup
-            Log::info('Desplegando sin backup');
-            return redirect()->route('proyectos.show', $tesis->id)
-                ->with('success', 'Proyecto desplegado exitosamente');
                 
         } catch (\Exception $e) {
             Log::error('Error en deploy method', [
@@ -377,11 +425,11 @@ class ProyectoController extends Controller
             
             // Si ya existe un contenedor, detenerlo primero
             if (!empty($tesis->container_id)) {
-                $this->dockerService->stopContainer($tesis->container_id);
+                $this->laragonService->stopProject($tesis->container_id);
             }
             
             // Construir y ejecutar el proyecto
-            $result = $this->dockerService->buildAndRunProject($tesis);
+            $result = $this->laragonService->deployProject($tesis);
             
             if (!$result) {
                 $tesis->container_status = 'failed';
@@ -465,11 +513,94 @@ class ProyectoController extends Controller
             $tesis->deployment_error = $e->getMessage();
             $tesis->save();
             
+            // Determinar tipo de error para mostrar mensaje específico
+            $errorMessage = $e->getMessage();
+            $errorType = 'general';
+            
+            if (strpos($errorMessage, 'Docker Desktop no está ejecutándose') !== false ||
+                strpos($errorMessage, 'dockerDesktopLinuxEngine') !== false) {
+                $errorType = 'docker_not_running';
+            } elseif (strpos($errorMessage, 'Docker no está instalado') !== false) {
+                $errorType = 'docker_not_installed';
+            }
+            
             return redirect()->back()
-                ->with('error', 'Error al desplegar el proyecto: ' . $e->getMessage());
+                ->with('error', 'Error al desplegar el proyecto: ' . $errorMessage)
+                ->with('error_type', $errorType);
         }
     }
     
+    /**
+     * Ejecutar el despliegue del proyecto (método interno sin redirecciones)
+     */
+    private function executeProjectDeployment($id, $selectedBackup = null)
+    {
+        $tesis = Tesis::findOrFail($id);
+        
+        try {
+            // Establecer estado de despliegue en progreso
+            $tesis->container_status = 'deploying';
+            $tesis->save();
+            
+            // Si ya existe un proyecto, detenerlo primero
+            if (!empty($tesis->container_id)) {
+                $this->laragonService->stopProject($tesis->container_id);
+            }
+            
+            // Construir y ejecutar el proyecto en Laragon
+            Log::info("CONTROLLER DEBUG: executeProjectDeployment llamando a deployProject", [
+                'tesis_id' => $tesis->id,
+                'project_repo_path' => $tesis->project_repo_path,
+                'project_type' => $tesis->project_type
+            ]);
+            
+            $result = $this->laragonService->deployProject($tesis);
+            
+            if (!$result) {
+                $tesis->container_status = 'failed';
+                $tesis->save();
+                
+                Log::error('Deployment failed: No result returned from deployProject');
+                return false;
+            }
+            
+            // Actualizar la tesis con la información del proyecto
+            $tesis->container_id = $result['container_id'];
+            $tesis->container_status = $result['container_status'];
+            $tesis->project_url = $result['project_url'];
+            $tesis->project_config = $result['project_config'];
+            $tesis->deployment_error = null; // Limpiar errores anteriores
+            $tesis->last_deployed = now();
+            
+            // Marcar como configurado automáticamente
+            $tesis->backup_restored = true; // Se configuró la BD automáticamente
+            $tesis->env_configured = true;  // Se configuró el .env automáticamente
+            $tesis->backup_restored_at = now();
+            
+            $tesis->save();
+            
+            // Registrar información sobre el despliegue exitoso
+            Log::info('Proyecto desplegado exitosamente', [
+                'tesis_id' => $tesis->id,
+                'container_id' => $result['container_id'],
+                'project_url' => $result['project_url'],
+                'external_port' => $result['project_config']['external_port']
+            ]);
+            
+            return true;
+            
+        } catch (\Exception $e) {
+            Log::error('Error deploying project: ' . $e->getMessage());
+            
+            // Guardar información detallada del error
+            $tesis->container_status = 'failed';
+            $tesis->deployment_error = $e->getMessage();
+            $tesis->save();
+            
+            return false;
+        }
+    }
+
     /**
      * Mostrar el proyecto desplegado
      */
@@ -487,8 +618,8 @@ class ProyectoController extends Controller
                 ->with('error', 'Primero debe desplegar el proyecto');
         }
         
-        // Verificar el estado del contenedor
-        $status = $this->dockerService->getContainerStatus($tesis->container_id);
+        // Verificar el estado del proyecto
+        $status = $this->laragonService->getProjectStatus($tesis->container_id);
         
         if ($status && $status != $tesis->container_status) {
             $tesis->container_status = $status;
@@ -511,7 +642,7 @@ class ProyectoController extends Controller
         }
         
         try {
-            $stopped = $this->dockerService->stopContainer($tesis->container_id);
+            $stopped = $this->laragonService->stopProject($tesis->container_id);
             
             if (!$stopped) {
                 return redirect()->back()
@@ -544,11 +675,11 @@ class ProyectoController extends Controller
         }
         
         try {
-            // Detener el contenedor actual
-            $this->dockerService->stopContainer($tesis->container_id);
+            // Detener el proyecto actual
+            $this->laragonService->stopProject($tesis->container_id);
             
             // Volver a desplegar el proyecto
-            return $this->deployProject($id);
+            return $this->executeProjectDeployment($id);
         } catch (\Exception $e) {
             Log::error('Error restarting project: ' . $e->getMessage());
             
@@ -823,10 +954,66 @@ class ProyectoController extends Controller
                 ->with('error', 'El proyecto no está en ejecución actualmente');
         }
         
-        // La redirección real se maneja por el middleware ProjectProxyMiddleware
+        // NUEVO: Reiniciar Laragon antes de acceder al proyecto
+        try {
+            Log::info("Reiniciando Laragon para el proyecto: " . $tesis->container_id);
+            $this->laragonService->restartLaragonForProject($tesis->container_id);
+        } catch (\Exception $e) {
+            Log::warning("Error reiniciando Laragon: " . $e->getMessage());
+        }
+        
+        // Para proyectos de Laragon, verificar disponibilidad del proyecto
+        if (!empty($tesis->project_url)) {
+            $projectUrl = $tesis->project_url;
+            $projectName = $tesis->container_id;
+            
+            // Verificar si el proyecto está disponible en el dominio .test
+            $isHostsConfigured = $this->checkProjectAvailability($projectUrl);
+            
+            if (!$isHostsConfigured) {
+                // Si no está configurado en hosts, usar IP local como fallback
+                $fallbackUrl = "http://127.0.0.1/{$projectName}/";
+                if (!empty($path)) {
+                    $fallbackUrl = rtrim($fallbackUrl, '/') . '/' . $path;
+                }
+                Log::info("Usando fallback URL para {$projectName}: {$fallbackUrl}");
+                return redirect()->away($fallbackUrl);
+            }
+            
+            // Si está configurado, usar la URL normal
+            $finalUrl = $projectUrl;
+            if (!empty($path)) {
+                $finalUrl = rtrim($finalUrl, '/') . '/' . $path;
+            }
+            return redirect()->away($finalUrl);
+        }
+        
+        // Fallback: La redirección real se maneja por el middleware ProjectProxyMiddleware
         // Este método solo se llama para resolver la ruta y validar el proyecto
         
         return response()->make('Redireccionando...', 200);
+    }
+    
+    /**
+     * Verificar si un proyecto está disponible en su URL configurada
+     */
+    private function checkProjectAvailability(string $url): bool
+    {
+        try {
+            $context = stream_context_create([
+                'http' => [
+                    'timeout' => 3,
+                    'method' => 'GET'
+                ]
+            ]);
+            
+            $headers = @get_headers($url, 1, $context);
+            return $headers !== false && strpos($headers[0], '200') !== false;
+            
+        } catch (\Exception $e) {
+            Log::info("URL no disponible: {$url} - " . $e->getMessage());
+            return false;
+        }
     }
     
     /**
@@ -854,5 +1041,54 @@ class ProyectoController extends Controller
         }
         
         return false;
+    }
+    
+    /**
+     * Desplegar proyecto sin backup (para reintentos)
+     */
+    public function deployWithoutBackup($id)
+    {
+        Log::info("=== DEPLOY WITHOUT BACKUP ===", ['tesis_id' => $id]);
+        
+        try {
+            $deployResult = $this->executeProjectDeployment($id);
+            
+            // Verificar si la petición es AJAX
+            if (request()->ajax()) {
+                if ($deployResult) {
+                    return response()->json([
+                        'success' => true,
+                        'message' => 'Proyecto desplegado exitosamente en Laragon.'
+                    ]);
+                } else {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Error al desplegar el proyecto. Revise los logs para más detalles.'
+                    ], 500);
+                }
+            }
+            
+            // Respuesta tradicional para navegadores
+            if ($deployResult) {
+                return redirect()->back()
+                    ->with('success', 'Proyecto desplegado exitosamente en Laragon.');
+            } else {
+                return redirect()->back()
+                    ->with('error', 'Error al desplegar el proyecto. Revise los logs para más detalles.');
+            }
+        } catch (\Exception $e) {
+            Log::error('Error en deployWithoutBackup: ' . $e->getMessage());
+            
+            // Verificar si la petición es AJAX
+            if (request()->ajax()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Error al desplegar el proyecto: ' . $e->getMessage()
+                ], 500);
+            }
+            
+            return redirect()->back()
+                ->with('error', 'Error al desplegar el proyecto: ' . $e->getMessage());
+        }
     }
 }

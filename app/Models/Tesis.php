@@ -31,7 +31,10 @@ class Tesis extends Model
         'project_config',
         'last_deployed',
         'is_visible',
-        'project_repo_path'
+        'project_repo_path',
+        'backup_restored',
+        'env_configured',
+        'backup_restored_at'
     ];
 
     protected $casts = [
@@ -39,7 +42,10 @@ class Tesis extends Model
         'fecha_fin' => 'date',
         'project_config' => 'array',
         'is_visible' => 'boolean',
+        'backup_restored' => 'boolean',
+        'env_configured' => 'boolean',
         'last_deployed' => 'datetime',
+        'backup_restored_at' => 'datetime',
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
         'deleted_at' => 'datetime',
@@ -91,5 +97,28 @@ class Tesis extends Model
     public function databaseBackups()
     {
         return $this->hasMany(ProjectBackup::class)->where('backup_type', 'database');
+    }
+    
+    /**
+     * Check if the project is ready for deployment
+     */
+    public function isReadyForDeployment()
+    {
+        // Con el nuevo sistema, solo necesitamos que el repositorio esté clonado
+        // El deployment automáticamente creará la BD, configurará .env y ejecutará migraciones
+        return !empty($this->project_repo_path);
+    }
+    
+    /**
+     * Get deployment readiness status with details
+     */
+    public function getDeploymentReadinessStatus()
+    {
+        return [
+            'repository_cloned' => !empty($this->project_repo_path),
+            'backup_restored' => $this->backup_restored,
+            'env_configured' => $this->env_configured,
+            'ready_for_deployment' => $this->isReadyForDeployment()
+        ];
     }
 }

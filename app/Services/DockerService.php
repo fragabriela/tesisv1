@@ -161,8 +161,12 @@ class DockerService
      */
     public function createDockerfile($repoPath, $projectType)
     {
+        Log::info("DEBUG createDockerfile: repoPath = $repoPath, projectType = $projectType");
         $fullPath = storage_path('app/public/' . $repoPath);
         $dockerfilePath = $fullPath . '/Dockerfile';
+        Log::info("DEBUG createDockerfile: fullPath = $fullPath");
+        Log::info("DEBUG createDockerfile: dockerfilePath = $dockerfilePath");
+        Log::info("DEBUG createDockerfile: file_exists = " . (file_exists($dockerfilePath) ? 'true' : 'false'));
         
         if (file_exists($dockerfilePath)) {
             // Verificar si el Dockerfile tiene una versión de PHP obsoleta
@@ -188,7 +192,9 @@ class DockerService
         Log::info("Detected PHP version requirement: {\$phpVersion} for project at {\$repoPath}");
         
         $dockerfile = '';
-        switch ($projectType) {
+        Log::info("DEBUG createDockerfile: projectType = '$projectType'");
+        
+        switch (strtolower($projectType)) {
             case 'laravel':
             case 'php': // Tratar proyectos PHP genéricos
                 // Determinar si el proyecto tiene un directorio público
@@ -301,9 +307,122 @@ EXPOSE 80
 CMD ["apache2-foreground"]
 EOT;
                 break;
+                
+            default:
+                Log::info("DEBUG createDockerfile: Tipo de proyecto '$projectType' no reconocido, tratando como Laravel");
+                // Para tipos de proyecto no reconocidos, usar la plantilla de Laravel
+                $hasPublicDir = is_dir($fullPath . '/public');
+                $documentRoot = $hasPublicDir ? '/var/www/html/public' : '/var/www/html';
+                
+                $dockerfile = <<<EOT
+FROM php:{$phpVersion}-apache
+
+# Instalar dependencias del sistema
+RUN apt-get update && apt-get install -y \
+    libpng-dev \
+    libjpeg-dev \
+    libfreetype6-dev \
+    libzip-dev \
+    zip \
+    unzip \
+    git \
+    curl \
+    libonig-dev \
+    libxml2-dev \
+    mariadb-client \
+    && rm -rf /var/lib/apt/lists/*
+
+# Configurar extensiones PHP
+RUN docker-php-ext-configure gd --with-freetype --with-jpeg
+RUN docker-php-ext-install pdo_mysql mysqli gd zip mbstring xml
+
+# Instalar Composer
+COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
+
+# Configurar Apache para usar el directorio público
+RUN sed -ri -e 's!/var/www/html!{$documentRoot}!g' /etc/apache2/sites-available/*.conf
+RUN sed -ri -e 's!/var/www/!{$documentRoot}!g' /etc/apache2/apache2.conf /etc/apache2/conf-available/*.conf
+
+RUN a2enmod rewrite
+
+# Configurar ServerName para evitar warnings
+RUN echo "ServerName localhost" >> /etc/apache2/apache2.conf
+
+# Establecer directorio de trabajo
+WORKDIR /var/www/html
+
+# Copiar proyecto
+COPY . .
+
+# Configurar git para evitar errores de ownership
+RUN git config --global --add safe.directory /var/www/html || true
+
+# Instalar dependencias de Composer
+RUN if [ -f "composer.json" ]; then \
+        composer install --no-interaction --optimize-autoloader --no-dev --ignore-platform-reqs || \
+        composer install --no-interaction --no-dev --ignore-platform-reqs || \
+        echo "Composer install failed, continuing without dependencies"; \
+    fi
+
+# Configurar permisos para proyectos Laravel/PHP
+RUN if [ -d "storage" ]; then \
+        chown -R www-data:www-data /var/www/html/storage; \
+        chmod -R 775 /var/www/html/storage; \
+    fi
+RUN if [ -d "bootstrap/cache" ]; then \
+        chown -R www-data:www-data /var/www/html/bootstrap/cache; \
+        chmod -R 775 /var/www/html/bootstrap/cache; \
+    fi
+
+# Configurar permisos generales
+RUN chown -R www-data:www-data /var/www/html
+RUN chmod -R 755 /var/www/html
+
+# Crear archivo .env si no existe pero hay un .env.example
+RUN if [ ! -f .env ] && [ -f .env.example ]; then \
+        cp .env.example .env; \
+        if [ -f "artisan" ]; then \
+            php artisan key:generate --no-interaction || true; \
+        fi; \
+    fi
+
+# Configurar variables de entorno para proyectos Laravel
+RUN if [ -f "artisan" ]; then \
+        echo "APP_ENV=production" >> .env; \
+        echo "APP_DEBUG=false" >> .env; \
+        echo "DB_CONNECTION=mysql" >> .env; \
+        echo "DB_HOST=mysql" >> .env; \
+        echo "DB_PORT=3306" >> .env; \
+        echo "DB_DATABASE=tesisv1" >> .env; \
+        echo "DB_USERNAME=root" >> .env; \
+        echo "DB_PASSWORD=secret" >> .env; \
+    fi
+
+EXPOSE 80
+
+# Comando de inicio
+CMD ["apache2-foreground"]
+EOT;
+                break;
         }
 
-        return $dockerfile;
+        // Guardar el Dockerfile
+        if (!empty($dockerfile)) {
+            try {
+                $result = file_put_contents($dockerfilePath, $dockerfile);
+                if ($result === false) {
+                    Log::error("No se pudo escribir el Dockerfile en: $dockerfilePath");
+                    return false;
+                }
+                Log::info("Dockerfile creado exitosamente en: $dockerfilePath");
+                return true;
+            } catch (\Exception $e) {
+                Log::error("Error al crear Dockerfile: " . $e->getMessage());
+                return false;
+            }
+        }
+
+        return false;
     }
 
     /**
@@ -362,14 +481,33 @@ EOT;
     public function checkDockerAvailability()
     {
         try {
-            // Comprobar si Docker está instalado y disponible
+            // Comprobar si Docker está instalado
             exec('docker --version 2>&1', $output, $returnVar);
             
             if ($returnVar !== 0) {
-                Log::error('Docker no está disponible: ' . implode("\n", $output));
+                Log::error('Docker no está instalado: ' . implode("\n", $output));
                 return false;
             }
             
+            // Verificar si Docker Desktop está ejecutándose
+            exec('docker info 2>&1', $infoOutput, $infoReturnVar);
+            
+            if ($infoReturnVar !== 0) {
+                $errorMessage = implode("\n", $infoOutput);
+                
+                // Detectar el error específico de Docker Desktop no ejecutándose
+                if (strpos($errorMessage, 'dockerDesktopLinuxEngine') !== false || 
+                    strpos($errorMessage, 'cannot connect') !== false ||
+                    strpos($errorMessage, 'system cannot find the file') !== false) {
+                    Log::error('Docker Desktop no está ejecutándose. Por favor, inicie Docker Desktop.');
+                    return false;
+                }
+                
+                Log::error('Error al conectar con Docker: ' . $errorMessage);
+                return false;
+            }
+            
+            Log::info('Docker está instalado y ejecutándose correctamente');
             return true;
         } catch (\Exception $e) {
             Log::error('Error verificando disponibilidad de Docker: ' . $e->getMessage());
@@ -385,14 +523,25 @@ EOT;
      */
     public function buildAndRunProject(Tesis $tesis)
     {
+        Log::info("DOCKER SERVICE DEBUG: buildAndRunProject iniciado", [
+            'tesis_id' => $tesis->id,
+            'project_repo_path' => $tesis->project_repo_path,
+            'project_type' => $tesis->project_type
+        ]);
+        
         try {
             // Verificar si Docker está disponible
             if (!$this->checkDockerAvailability()) {
-                throw new \Exception('Docker no está instalado o no está accesible en este sistema.');
+                throw new \Exception('Docker no está instalado o Docker Desktop no está ejecutándose. Por favor, inicie Docker Desktop y vuelva a intentar.');
             }
             
             $repoPath = storage_path('app/public/' . $tesis->project_repo_path);
             $projectType = $tesis->project_type;
+            
+            Log::info("DOCKER SERVICE DEBUG: Rutas calculadas", [
+                'repoPath' => $repoPath,
+                'projectType' => $projectType
+            ]);
             
             // Asegurarnos que exista el Dockerfile y docker-compose.yml
             if (!$this->createDockerfile($tesis->project_repo_path, $projectType)) {
@@ -404,16 +553,68 @@ EOT;
             }
             
             // Verificar que los archivos se crearon correctamente
-            if (!file_exists($repoPath . '/Dockerfile')) {
+            Log::info("DEBUG: Verificando existencia de archivos");
+            Log::info("DEBUG: repoPath = " . $repoPath);
+            Log::info("DEBUG: Dockerfile path = " . $repoPath . '/Dockerfile');
+            Log::info("DEBUG: file_exists result = " . (file_exists($repoPath . '/Dockerfile') ? 'true' : 'false'));
+            Log::info("DEBUG: is_file result = " . (is_file($repoPath . '/Dockerfile') ? 'true' : 'false'));
+            Log::info("DEBUG: is_readable result = " . (is_readable($repoPath . '/Dockerfile') ? 'true' : 'false'));
+            
+            $dockerfilePath = $repoPath . '/Dockerfile';
+            $dockerfileExists = file_exists($dockerfilePath) && is_file($dockerfilePath) && is_readable($dockerfilePath);
+            
+            if (!$dockerfileExists) {
+                // Intentar rutas alternativas
+                $alternativePaths = [
+                    storage_path('app/public/repos/HigfxI9k01/Dockerfile'),
+                    storage_path('app/repos/HigfxI9k01/Dockerfile'),
+                    storage_path('repos/HigfxI9k01/Dockerfile')
+                ];
+                
+                foreach ($alternativePaths as $altPath) {
+                    Log::info("DEBUG: Verificando ruta alternativa: $altPath");
+                    if (file_exists($altPath) && is_file($altPath)) {
+                        Log::info("DEBUG: Encontrado en ruta alternativa, copiando...");
+                        copy($altPath, $dockerfilePath);
+                        $dockerfileExists = true;
+                        break;
+                    }
+                }
+            }
+            
+            if (!$dockerfileExists) {
                 throw new \Exception("El Dockerfile no existe en la ruta esperada: $repoPath/Dockerfile");
             }
             
-            if (!file_exists($repoPath . '/docker-compose.yml')) {
+            $composePath = $repoPath . '/docker-compose.yml';
+            $composeExists = file_exists($composePath) && is_file($composePath) && is_readable($composePath);
+            
+            if (!$composeExists) {
+                // Intentar rutas alternativas para docker-compose.yml
+                $alternativeComposePaths = [
+                    storage_path('app/public/repos/HigfxI9k01/docker-compose.yml'),
+                    storage_path('app/repos/HigfxI9k01/docker-compose.yml'),
+                    storage_path('repos/HigfxI9k01/docker-compose.yml')
+                ];
+                
+                foreach ($alternativeComposePaths as $altPath) {
+                    Log::info("DEBUG: Verificando docker-compose en ruta alternativa: $altPath");
+                    if (file_exists($altPath) && is_file($altPath)) {
+                        Log::info("DEBUG: docker-compose encontrado en ruta alternativa, copiando...");
+                        copy($altPath, $composePath);
+                        $composeExists = true;
+                        break;
+                    }
+                }
+            }
+            
+            if (!$composeExists) {
                 throw new \Exception("El archivo docker-compose.yml no existe en la ruta esperada: $repoPath/docker-compose.yml");
             }
             
-            // Generar un nombre único para el contenedor
-            $containerName = 'tesis-' . $tesis->id . '-' . Str::random(5);
+            // Generar un nombre único para el contenedor basado en el directorio
+            $baseName = basename($repoPath);
+            $containerName = strtolower(preg_replace('/[^a-zA-Z0-9]/', '', $baseName));
             
             // Asegurarse de que el docker-compose.yml use el mismo nombre de contenedor
             if (!$this->createDockerCompose($tesis->project_repo_path, $projectType, $containerName)) {
@@ -422,6 +623,11 @@ EOT;
             
             // Registrar comandos que vamos a ejecutar
             Log::info('Ejecutando docker compose en el directorio: ' . $repoPath);
+            Log::info('Nombre del contenedor: ' . $containerName);
+            
+            // Detener contenedores existentes si los hay
+            $stopCmd = "cd {$repoPath} && docker compose down 2>&1";
+            exec($stopCmd, $stopOutput, $stopReturn);
             
             // Intentar usar "docker compose" (nuevo formato con espacio)
             $cmd = "cd {$repoPath} && docker compose up -d 2>&1";
@@ -443,148 +649,158 @@ EOT;
                 }
             }
             
-            // Añadir un pequeño retraso para asegurar que el contenedor esté en funcionamiento
-            Log::info('Esperando 5 segundos para que el contenedor inicie...');
-            sleep(5);
+            // Añadir un retraso más largo para Docker Compose con múltiples contenedores
+            Log::info('Esperando 10 segundos para que los contenedores inicien...');
+            sleep(10);
             
-            // Obtener información del contenedor - comprobamos primero el nombre exacto
-            $cmd = 'docker ps --filter "name=' . $containerName . '" --format "{{.ID}}|{{.Ports}}"';
-            exec($cmd, $containerInfo, $returnVar);
+            // Buscar contenedor de aplicación (no MySQL)
+            $containerInfo = $this->findApplicationContainer($containerName, $repoPath);
             
-            // Si no encontramos con el nombre exacto, intentamos diferentes patrones
-            if (empty($containerInfo)) {
-                // Listar todos los contenedores para análisis
-                exec('docker ps', $allContainers);
-                Log::info("Contenedores activos: " . implode("\n", $allContainers));
-                
-                // Patrón 1: Búsqueda por basename del directorio (más genérica)
-                $baseName = basename($repoPath);
-                Log::info("No se encontró contenedor con nombre exacto. Buscando contenedores que contengan: " . $baseName);
-                // Usamos una búsqueda más amplia sin filtrado previo para capturar todos los posibles matches
-                exec('docker ps --format "{{.ID}}|{{.Ports}}|{{.Names}}"', $allContainerDetails);
-                
-                // Obtener lista completa con todos los detalles relevantes
-                exec('docker ps --format "{{.ID}}|{{.Image}}|{{.Names}}|{{.Ports}}"', $allContainerDetails);
-                Log::info("Buscando entre " . count($allContainerDetails) . " contenedores.");
-                
-                // Filtrar manualmente los resultados para encontrar coincidencias
-                foreach ($allContainerDetails as $container) {
-                    $parts = explode('|', $container);
-                    if (count($parts) >= 4) {
-                        $id = $parts[0];
-                        $image = $parts[1];
-                        $name = $parts[2];
-                        $ports = $parts[3];
-                        
-                        Log::info("Evaluando: ID=$id, Image=$image, Name=$name");
-                        
-                        // Verificar si el nombre del contenedor o la imagen contienen el nombre base del directorio
-                        if (stripos($name, $baseName) !== false || 
-                            stripos($name, str_replace('_', '-', $baseName)) !== false || 
-                            stripos($image, $baseName) !== false ||
-                            stripos($image, str_replace('_', '-', $baseName)) !== false) {
-                            
-                            Log::info("¡MATCH! Encontrado contenedor relacionado por nombre o imagen: $name ($image)");
-                            $containerInfo[] = "$id|$ports";
-                            break;
-                        }
-                    }
-                }
-            }
-            
-            if ($returnVar !== 0) {
-                Log::error('Error executing docker ps command: ' . implode("\n", $containerInfo));
+            if (!$containerInfo) {
+                Log::error('No se pudo encontrar el contenedor de la aplicación');
                 return null;
             }
             
-            if (empty($containerInfo)) {
-                // Último intento - buscar cualquier contenedor creado recientemente (últimos 60 segundos)
-                Log::info('Intentando encontrar contenedor por tiempo de creación reciente...');
-                exec('docker ps --filter "since=60s" --format "{{.ID}}|{{.Ports}}|{{.Names}}"', $recentContainers);
+            // Procesar información del contenedor
+            $containerParts = explode('|', $containerInfo[0]);
+            if (count($containerParts) < 2) {
+                Log::error('Formato de información del contenedor no válido: ' . $containerInfo[0]);
+                return null;
+            }
+            
+            $containerId = $containerParts[0];
+            $portsStr = $containerParts[1];
+            
+            Log::info("Contenedor encontrado - ID: $containerId, Puertos: $portsStr");
+            
+            // Extraer el puerto público
+            preg_match('/0\.0\.0\.0:(\d+)->80/', $portsStr, $matches);
+            $publicPort = isset($matches[1]) ? $matches[1] : null;
+            
+            if (!$publicPort) {
+                Log::warning('No se pudo extraer el puerto público de: ' . $portsStr);
+            }
+            
+            Log::info("Puerto público detectado: $publicPort");
+            
+            // Generar APP_KEY si es Laravel y no existe
+            if ($projectType === 'laravel') {
+                $this->ensureLaravelAppKey($containerId);
+            }
+            
+            // Intentar restaurar backup si existe
+            if ($tesis->backup && file_exists(storage_path('app/public/backups/' . $tesis->backup->backup_file))) {
+                Log::info('Iniciando restauración automática de backup');
+                $backupService = new ProjectBackupService();
+                $restoreResult = $backupService->restoreBackupWithAutoDetection($tesis, $containerId);
                 
-                if (!empty($recentContainers)) {
-                    Log::info("Contenedores recientes encontrados: " . count($recentContainers));
-                    // Tomar el contenedor más reciente
-                    $containerParts = explode('|', $recentContainers[0]);
-                    $containerInfo[] = $containerParts[0] . '|' . $containerParts[1];
-                    Log::info("Usando el contenedor más reciente: " . $containerParts[2]);
+                if ($restoreResult['success']) {
+                    Log::info('Backup restaurado exitosamente: ' . $restoreResult['message']);
                 } else {
-                    Log::error('No containers found matching any pattern or created recently');
-                    // List all running containers to help debug
-                    exec("docker ps", $allContainers);
-                    Log::info('Running containers: ' . implode("\n", $allContainers));
-                    return null;
+                    Log::warning('Error restaurando backup: ' . $restoreResult['message']);
                 }
             }
-            
-            // Obtener información más completa del contenedor
-            Log::info('Container info found: ' . $containerInfo[0]);
-            $infoParts = explode('|', $containerInfo[0]);
-            $containerId = $infoParts[0];
-            $ports = $infoParts[1];
-            
-            // Obtener el nombre real del contenedor
-            $cmd = 'docker ps --filter "id=' . $containerId . '" --format "{{.Names}}"';
-            exec($cmd, $nameOutput, $nameReturnVar);
-            $actualContainerName = $nameOutput[0] ?? $containerName;
-            
-            // Extraer el puerto mapeado - compatible con varios formatos
-            $port = null;
-            
-            // Formato IPv4: 0.0.0.0:32774->80/tcp
-            if (preg_match('/0.0.0.0:(\d+)/', $ports, $matches)) {
-                $port = $matches[1];
-                Log::info("Puerto encontrado (formato IPv4): $port");
-            } 
-            // Formato IPv6: [::]:32774->80/tcp
-            elseif (preg_match('/\[\:\:\]:(\d+)/', $ports, $matches)) {
-                $port = $matches[1];
-                Log::info("Puerto encontrado (formato IPv6): $port");
-            }
-            // Formato alternativo: *:32774->80/tcp
-            elseif (preg_match('/:(\d+)->/', $ports, $matches)) {
-                $port = $matches[1];
-                Log::info("Puerto encontrado (formato alternativo): $port");
-            }
-            
-            if (!$port) {
-                // Intento de recuperación: obtener la información directamente de Docker
-                $cmd = 'docker port ' . $containerId . ' 80';
-                exec($cmd, $portOutput, $portReturnVar);
-                
-                if ($portReturnVar === 0 && !empty($portOutput)) {
-                    // Formato de respuesta: 0.0.0.0:32774
-                    if (preg_match('/:(\d+)$/', $portOutput[0], $matches)) {
-                        $port = $matches[1];
-                        Log::info("Puerto encontrado (usando docker port): $port");
-                    }
-                }
-            }
-            
-            if (!$port) {
-                Log::error('Could not determine container port from: ' . $ports);
-                return null;
-            }
-              // Generar la URL del proyecto usando la ruta correcta
-            $projectUrl = route('proyectos.show', $tesis->id);
             
             return [
                 'container_id' => $containerId,
                 'container_status' => 'running',
-                'project_url' => $projectUrl,
-                'port' => $port,
+                'project_url' => $publicPort ? "http://localhost:$publicPort" : null,
                 'project_config' => [
-                    'container_name' => $actualContainerName, // Usar el nombre real del contenedor
-                    'internal_port' => $this->getInternalPort($projectType),
-                    'external_port' => $port,
-                ]
+                    'external_port' => $publicPort,
+                    'container_name' => $containerName,
+                    'project_type' => $projectType
+                ],
+                'port' => $publicPort,
+                'container_name' => $containerName,
+                'status' => 'success',
+                'message' => 'Proyecto desplegado exitosamente con Docker Compose'
             ];
+            
         } catch (\Exception $e) {
-            Log::error('Error building and running project: ' . $e->getMessage());
-            return null;
+            Log::error('Error en buildAndRunProject: ' . $e->getMessage());
+            throw $e;
         }
     }
-      /**
+    
+    /**
+     * Buscar el contenedor de aplicación (excluyendo MySQL y otros servicios)
+     */
+    private function findApplicationContainer(string $containerName, string $repoPath): ?array
+    {
+        $baseName = basename($repoPath);
+        
+        // Buscar contenedores por nombre del proyecto
+        exec('docker ps --format "{{.ID}}|{{.Ports}}|{{.Names}}"', $allContainerDetails);
+        
+        foreach ($allContainerDetails as $container) {
+            $parts = explode('|', $container);
+            if (count($parts) >= 3) {
+                $id = $parts[0];
+                $ports = $parts[1];
+                $name = $parts[2];
+                
+                // Excluir contenedores de base de datos
+                if (stripos($name, 'mysql') !== false || 
+                    stripos($name, 'postgres') !== false || 
+                    stripos($name, 'redis') !== false) {
+                    continue;
+                }
+                
+                // Buscar contenedor de aplicación
+                if (stripos($name, $containerName) !== false || 
+                    stripos($name, $baseName) !== false) {
+                    
+                    Log::info("Contenedor de aplicación encontrado: $name");
+                    return ["$id|$ports"];
+                }
+            }
+        }
+        
+        return null;
+    }
+
+    /**
+     * Generar APP_KEY para Laravel si no existe
+     */
+    private function ensureLaravelAppKey(string $containerId): void
+    {
+        try {
+            Log::info('Verificando APP_KEY para Laravel...');
+            
+            // Verificar si existe APP_KEY válida
+            exec("docker exec $containerId cat /var/www/html/.env | grep APP_KEY", $envOutput, $envReturn);
+            
+            $needsNewKey = true;
+            if ($envReturn === 0 && !empty($envOutput)) {
+                foreach ($envOutput as $line) {
+                    if (strpos($line, 'APP_KEY=base64:') !== false && strlen(trim($line)) > 20) {
+                        $needsNewKey = false;
+                        Log::info('APP_KEY válida encontrada');
+                        break;
+                    }
+                }
+            }
+            
+            if ($needsNewKey) {
+                Log::info('Generando nueva APP_KEY...');
+                exec("docker exec $containerId php /var/www/html/artisan key:generate --force", $keyOutput, $keyReturn);
+                
+                if ($keyReturn === 0) {
+                    Log::info('APP_KEY generada exitosamente');
+                } else {
+                    Log::warning('Error generando APP_KEY: ' . implode("\n", $keyOutput));
+                }
+            }
+            
+            // Limpiar cache
+            exec("docker exec $containerId php /var/www/html/artisan config:clear", $configOutput);
+            
+        } catch (\Exception $e) {
+            Log::error('Error en ensureLaravelAppKey: ' . $e->getMessage());
+        }
+    }
+
+    /**
      * Obtener el puerto interno basado en el tipo de proyecto
      * 
      * @param string $projectType
@@ -605,7 +821,7 @@ EOT;
             case 'python':
                 return 5000;
             default:
-                return 8080;
+                return 80;
         }
     }
 

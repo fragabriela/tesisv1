@@ -9,6 +9,12 @@ use App\Http\Controllers\TesisController;
 use App\Http\Controllers\MiFormularioController;
 use App\Http\Controllers\CarreraController;
 use App\Http\Controllers\TutorController;
+// Test routes
+require __DIR__.'/test-backup.php';
+require __DIR__.'/test-docker.php';
+require __DIR__.'/test-dockerfile.php';
+require __DIR__.'/debug-dockerfile.php';
+
 /*
 |--------------------------------------------------------------------------
 | Web Routes
@@ -546,6 +552,43 @@ Route::middleware(['auth'])->group(function () {
 
 // Ruta de prueba temporal sin middleware
 Route::get('documento-test', [DocumentoController::class, 'index'])->name('documento.test');
+
+// Ruta para verificar tesis repo path
+Route::get('check-tesis-path/{id?}', function($id = 22) {
+    $tesis = \App\Models\Tesis::find($id);
+    
+    if (!$tesis) {
+        return "❌ Tesis con ID $id no encontrada<br><br>Tesis disponibles:<br>" . 
+               \App\Models\Tesis::all()->map(function($t) { 
+                   return "ID: {$t->id} - proyecto_id: {$t->proyecto_id} - project_repo_path: {$t->project_repo_path}"; 
+               })->implode('<br>');
+    }
+    
+    $dockerfilePath = $tesis->project_repo_path . '/Dockerfile';
+    $composePath = $tesis->project_repo_path . '/docker-compose.yml';
+    
+    $html = "<h3>Verificación de Tesis ID: $id</h3>";
+    $html .= "<strong>project_repo_path:</strong> {$tesis->project_repo_path}<br><br>";
+    
+    $html .= "<strong>Dockerfile:</strong> $dockerfilePath<br>";
+    $html .= "<strong>Existe:</strong> " . (file_exists($dockerfilePath) ? "✅ SÍ" : "❌ NO") . "<br><br>";
+    
+    $html .= "<strong>docker-compose.yml:</strong> $composePath<br>";
+    $html .= "<strong>Existe:</strong> " . (file_exists($composePath) ? "✅ SÍ" : "❌ NO") . "<br><br>";
+    
+    if (file_exists($dockerfilePath)) {
+        $html .= "<strong>Información del Dockerfile:</strong><br>";
+        $html .= "Tamaño: " . filesize($dockerfilePath) . " bytes<br>";
+        $html .= "Es legible: " . (is_readable($dockerfilePath) ? "✅ SÍ" : "❌ NO") . "<br><br>";
+    }
+    
+    if (is_dir($tesis->project_repo_path)) {
+        $files = array_diff(scandir($tesis->project_repo_path), ['.', '..']);
+        $html .= "<strong>Contenido del directorio:</strong><br>" . implode('<br>', array_map(function($f) { return "- $f"; }, $files));
+    }
+    
+    return $html;
+});
 
 
 

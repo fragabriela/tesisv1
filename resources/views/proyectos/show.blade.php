@@ -37,17 +37,29 @@
                 </div>
                 <div class="card-body">                    <div class="text-center mb-4">
                         <div class="btn-group">
-                            <a href="{{ route('proyectos.proxy', $tesis->id) }}" target="_blank" class="btn btn-primary btn-lg">
-                                <i class="fas fa-external-link-alt"></i> Abrir Proyecto
-                            </a>
+                            @if(!empty($tesis->project_url))
+                                <a href="{{ $tesis->project_url }}" target="_blank" class="btn btn-primary btn-lg">
+                                    <i class="fas fa-external-link-alt"></i> Abrir Proyecto
+                                </a>
+                            @else
+                                <a href="{{ route('proyectos.proxy', $tesis->id) }}" target="_blank" class="btn btn-primary btn-lg">
+                                    <i class="fas fa-external-link-alt"></i> Abrir Proyecto
+                                </a>
+                            @endif
                             
                             <button type="button" class="btn btn-primary btn-lg dropdown-toggle dropdown-toggle-split" data-toggle="dropdown">
                                 <span class="sr-only">Opciones</span>
                             </button>
                             <div class="dropdown-menu">
-                                <a class="dropdown-item" href="{{ route('proyectos.proxy', $tesis->id) }}" target="_blank">
-                                    <i class="fas fa-external-link-alt"></i> Abrir en nueva pestaña
-                                </a>
+                                @if(!empty($tesis->project_url))
+                                    <a class="dropdown-item" href="{{ $tesis->project_url }}" target="_blank">
+                                        <i class="fas fa-external-link-alt"></i> Abrir en nueva pestaña
+                                    </a>
+                                @else
+                                    <a class="dropdown-item" href="{{ route('proyectos.proxy', $tesis->id) }}" target="_blank">
+                                        <i class="fas fa-external-link-alt"></i> Abrir en nueva pestaña
+                                    </a>
+                                @endif
                                 <a class="dropdown-item" href="#" id="refresh-iframe">
                                     <i class="fas fa-sync"></i> Recargar
                                 </a>
@@ -75,12 +87,20 @@
                         </div>
                     </div>
                       <div class="embed-responsive embed-responsive-16by9 border">
-                        <iframe id="project-iframe" class="embed-responsive-item" src="{{ route('proyectos.proxy', $tesis->id) }}"></iframe>
+                        @if(!empty($tesis->project_url))
+                            <iframe id="project-iframe" class="embed-responsive-item" src="{{ $tesis->project_url }}"></iframe>
+                        @else
+                            <iframe id="project-iframe" class="embed-responsive-item" src="{{ route('proyectos.proxy', $tesis->id) }}"></iframe>
+                        @endif
                     </div>                        <div class="alert alert-info mt-3">
                             <h5><i class="icon fas fa-info-circle"></i> Acceso al proyecto</h5>
                             <p>Este proyecto está disponible para todos los usuarios con acceso al sistema. URL pública:</p>
                             <div class="input-group">
-                                <input type="text" class="form-control" value="{{ route('proyectos.proxy', $tesis->id) }}" readonly>
+                                @if(!empty($tesis->project_url))
+                                    <input type="text" class="form-control" value="{{ $tesis->project_url }}" readonly>
+                                @else
+                                    <input type="text" class="form-control" value="{{ route('proyectos.proxy', $tesis->id) }}" readonly>
+                                @endif
                                 <div class="input-group-append">
                                     <button class="btn btn-outline-secondary copy-url" type="button">
                                         <i class="fas fa-copy"></i> Copiar

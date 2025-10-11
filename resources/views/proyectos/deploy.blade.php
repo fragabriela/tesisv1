@@ -21,22 +21,50 @@
     @if(!empty($tesis->deployment_error) && 
         (strpos($tesis->deployment_error, 'docker-compose') !== false ||
          strpos($tesis->deployment_error, 'Docker no está instalado') !== false ||
-         strpos($tesis->deployment_error, 'Docker no está accesible') !== false))
+         strpos($tesis->deployment_error, 'Docker no está accesible') !== false ||
+         strpos($tesis->deployment_error, 'Docker Desktop no está ejecutándose') !== false ||
+         strpos($tesis->deployment_error, 'dockerDesktopLinuxEngine') !== false))
         <div class="alert alert-danger mb-4">
             <div class="d-flex">
                 <div class="mr-3">
                     <i class="fas fa-exclamation-circle fa-3x text-danger"></i>
-                </div>                <div>
-                    <h4>Problema de instalación de Docker detectado</h4>
-                    <p>Se ha detectado un problema con la instalación de Docker en el servidor. Este problema debe resolverse antes de poder desplegar proyectos.</p>
-                    <div class="mt-3">
-                        <a href="{{ route('proyectos.docker-troubleshoot') }}" class="btn btn-warning mr-2">
-                            <i class="fas fa-tools mr-1"></i> Ejecutar diagnóstico de Docker
-                        </a>
-                        <a href="{{ route('proyectos.docker-install') }}" class="btn btn-info">
-                            <i class="fas fa-book-open mr-1"></i> Guía de instalación
-                        </a>
-                    </div>
+                </div>
+                <div>
+                    @if(strpos($tesis->deployment_error, 'Docker Desktop no está ejecutándose') !== false ||
+                        strpos($tesis->deployment_error, 'dockerDesktopLinuxEngine') !== false)
+                        <h4>Docker Desktop no está ejecutándose</h4>
+                        <p>Docker Desktop debe estar ejecutándose para poder desplegar proyectos. Por favor, siga estos pasos:</p>
+                        <ol>
+                            <li>Abra Docker Desktop desde el menú de inicio</li>
+                            <li>Espere hasta que aparezca "Docker Desktop is running" en la ventana</li>
+                            <li>Verifique que el ícono de Docker en la bandeja del sistema esté verde</li>
+                            <li>Vuelva a intentar el despliegue</li>
+                        </ol>
+                        <div class="mt-3">
+                            <button class="btn btn-primary" onclick="location.reload()">
+                                <i class="fas fa-sync-alt mr-1"></i> Verificar nuevamente
+                            </button>
+                        </div>
+                    @elseif(strpos($tesis->deployment_error, 'Docker no está instalado') !== false)
+                        <h4>Docker no está instalado</h4>
+                        <p>Docker debe estar instalado en el servidor para poder desplegar proyectos.</p>
+                        <div class="mt-3">
+                            <a href="{{ route('proyectos.docker-install') }}" class="btn btn-info">
+                                <i class="fas fa-book-open mr-1"></i> Guía de instalación
+                            </a>
+                        </div>
+                    @else
+                        <h4>Problema de instalación de Docker detectado</h4>
+                        <p>Se ha detectado un problema con la instalación de Docker en el servidor. Este problema debe resolverse antes de poder desplegar proyectos.</p>
+                        <div class="mt-3">
+                            <a href="{{ route('proyectos.docker-troubleshoot') }}" class="btn btn-warning mr-2">
+                                <i class="fas fa-tools mr-1"></i> Ejecutar diagnóstico de Docker
+                            </a>
+                            <a href="{{ route('proyectos.docker-install') }}" class="btn btn-info">
+                                <i class="fas fa-book-open mr-1"></i> Guía de instalación
+                            </a>
+                        </div>
+                    @endif
                 </div>
             </div>
         </div>
@@ -53,11 +81,79 @@
                         <h5><i class="icon fas fa-info-circle"></i> Proyecto Configurado</h5>
                         <p>Tipo de proyecto detectado: <strong>{{ ucfirst($tesis->project_type) }}</strong></p>
                         <p>Repositorio: <strong>{{ $tesis->github_repo }}</strong></p>
+                    </div>
+
+                    {{-- Progress Steps --}}
+                    @php
+                        $readiness = $tesis->getDeploymentReadinessStatus();
+                    @endphp
+                    
+                    <div class="card card-outline card-primary mb-4">
+                        <div class="card-header">
+                            <h5 class="card-title mb-0">
+                                <i class="fas fa-tasks"></i> Progreso de Configuración
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-4">
+                                    <div class="text-center">
+                                        @if($readiness['repository_cloned'])
+                                            <i class="fas fa-check-circle text-success fa-3x"></i>
+                                            <h6 class="mt-2 text-success">✅ Repositorio Clonado</h6>
+                                        @else
+                                            <i class="fas fa-clock text-warning fa-3x"></i>
+                                            <h6 class="mt-2 text-warning">⏳ Repositorio Pendiente</h6>
+                                        @endif
+                                        <small class="text-muted">Código fuente descargado</small>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="text-center">
+                                        @if($readiness['backup_restored'])
+                                            <i class="fas fa-check-circle text-success fa-3x"></i>
+                                            <h6 class="mt-2 text-success">✅ Base de Datos Restaurada</h6>
+                                            @if($tesis->backup_restored_at)
+                                                <small class="text-muted">{{ $tesis->backup_restored_at->format('d/m/Y H:i') }}</small>
+                                            @endif
+                                        @else
+                                            <i class="fas fa-times-circle text-danger fa-3x"></i>
+                                            <h6 class="mt-2 text-danger">❌ Base de Datos Pendiente</h6>
+                                            <small class="text-muted">Debe subir y restaurar backup</small>
+                                        @endif
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="text-center">
+                                        @if($readiness['env_configured'])
+                                            <i class="fas fa-check-circle text-success fa-3x"></i>
+                                            <h6 class="mt-2 text-success">✅ Variables Configuradas</h6>
+                                        @else
+                                            <i class="fas fa-times-circle text-danger fa-3x"></i>
+                                            <h6 class="mt-2 text-danger">❌ Variables Pendientes</h6>
+                                        @endif
+                                        <small class="text-muted">Configuración .env</small>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            @if($readiness['ready_for_deployment'])
+                                <div class="alert alert-success mt-3 mb-0">
+                                    <h6><i class="fas fa-rocket"></i> ¡Listo para Desplegar!</h6>
+                                    <p class="mb-0">Todos los requisitos están completos. Puede proceder con el despliegue.</p>
+                                </div>
+                            @else
+                                <div class="alert alert-warning mt-3 mb-0">
+                                    <h6><i class="fas fa-exclamation-triangle"></i> Configuración Incompleta</h6>
+                                    <p class="mb-0">Complete los pasos pendientes antes de poder desplegar el proyecto.</p>
+                                </div>
+                            @endif
+                        </div>
                     </div>                    @if(!empty($tesis->container_id) && $tesis->container_status === 'running')
                         <div class="alert alert-success">
                             <h5><i class="icon fas fa-check"></i> Proyecto Desplegado</h5>
-                            <p>El proyecto ya está desplegado y en ejecución.</p>
-                            <p>Estado del contenedor: <span class="badge badge-success">En ejecución</span></p>
+                            <p>El proyecto ya está desplegado y en ejecución en Laragon.</p>
+                            <p>Estado del proyecto: <span class="badge badge-success">En ejecución</span></p>
                             
                             <div class="mt-3">
                                 <a href="{{ route('proyectos.show', $tesis->id) }}" class="btn btn-primary">
@@ -84,9 +180,9 @@
                             </div>
                         </div>
                     @elseif(!empty($tesis->container_status) && $tesis->container_status === 'deploying')
-                        <div class="alert alert-info">
+                        <div class="alert alert-info" id="deployment-progress">
                             <h5><i class="icon fas fa-spinner fa-spin"></i> Despliegue en Progreso</h5>
-                            <p>El proyecto está siendo desplegado. Este proceso puede tardar varios minutos...</p>
+                            <p id="deployment-status-text">El proyecto está siendo desplegado. Este proceso puede tardar varios minutos...</p>
                             <div class="progress progress-lg mt-2">
                                 <div class="progress-bar progress-bar-striped progress-bar-animated bg-info" role="progressbar" style="width: 100%"></div>
                             </div>
@@ -104,7 +200,7 @@
                             @endif
                             <p class="mt-2">Puede consultar los logs para más detalles o intentar desplegar nuevamente el proyecto.</p>
                             <div class="mt-3">
-                                <form action="{{ route('proyectos.do-deploy', $tesis->id) }}" method="POST" class="d-inline-block">
+                                <form action="{{ route('proyectos.deploy-without-backup', $tesis->id) }}" method="POST" class="d-inline-block">
                                     @csrf
                                     <button type="submit" class="btn btn-success">
                                         <i class="fas fa-rocket"></i> Intentar Nuevamente
@@ -121,7 +217,7 @@
                         <div class="alert alert-warning">
                             <h5><i class="icon fas fa-pause"></i> Proyecto Detenido</h5>
                             <p>El proyecto está desplegado pero actualmente detenido.</p>
-                            <p>Estado del contenedor: <span class="badge badge-warning">Detenido</span></p>
+                            <p>Estado del proyecto: <span class="badge badge-warning">Detenido</span></p>
                             
                             <form action="{{ route('proyectos.do-deploy', $tesis->id) }}" method="POST" class="mt-3">
                                 @csrf
@@ -131,32 +227,81 @@
                             </form>
                         </div>
                     @else
-                        <form action="{{ route('proyectos.do-deploy', $tesis->id) }}" method="POST" enctype="multipart/form-data">
-                            @csrf
-                            <p>El siguiente paso es desplegar el proyecto en un contenedor Docker.</p>
-                            <p>Al hacer clic en el botón, el sistema:</p>
-                            <ol>
-                                <li>Creará un Dockerfile específico para tu tipo de proyecto</li>
-                                <li>Construirá una imagen Docker con tu aplicación</li>
-                                <li>Desplegará un contenedor con tu proyecto en ejecución</li>
-                                <li>Configurará el acceso para que pueda ser visualizado</li>
-                            </ol>
-                            
-                            <div class="alert alert-warning">
-                                <h5><i class="icon fas fa-exclamation-triangle"></i> Importante</h5>
-                                <p>Este proceso puede tardar varios minutos dependiendo de la complejidad del proyecto y las dependencias que requiera.</p>
-                                <p>Por favor, no cierre esta ventana durante el proceso de despliegue.</p>
+                        {{-- Check if project is ready for deployment --}}
+                        @if($tesis->isReadyForDeployment())
+                            {{-- Project is ready - show deployment option --}}
+                            <div class="alert alert-success">
+                                <h5><i class="icon fas fa-rocket"></i> ¡Listo para Desplegar!</h5>
+                                <p>El proyecto está completamente configurado y listo para ser desplegado.</p>
                             </div>
                             
-                            <!-- Panel de Backups -->
-                            <div class="card card-info mb-3">
+                            <div class="card card-success">
                                 <div class="card-header">
                                     <h5 class="card-title mb-0">
-                                        <i class="fas fa-archive"></i> Restaurar desde Backup (Opcional)
+                                        <i class="fas fa-rocket"></i> Desplegar Proyecto
                                     </h5>
                                 </div>
                                 <div class="card-body">
-                                    <p class="text-muted">Puedes cargar un archivo de backup para restaurar el proyecto después del despliegue.</p>
+                                    <p>Al hacer clic en el botón, el sistema:</p>
+                                    <ol>
+                                        <li>Copiará el proyecto a la carpeta de Laragon</li>
+                                        <li>Configurará automáticamente la base de datos MySQL</li>
+                                        <li>Instalará las dependencias necesarias</li>
+                                        <li>Ejecutará las migraciones de la base de datos</li>
+                                        <li>Configurará una URL limpia (.test)</li>
+                                    </ol>
+                                    
+                                    <div class="alert alert-info">
+                                        <h6><i class="icon fas fa-info-circle"></i> Ventajas de Laragon</h6>
+                                        <ul class="mb-0">
+                                            <li><strong>URLs limpias:</strong> Tu proyecto será accesible como proyectoX.test</li>
+                                            <li><strong>Más rápido:</strong> Sin overhead de contenedores</li>
+                                            <li><strong>Menos recursos:</strong> Utiliza el servidor local existente</li>
+                                            <li><strong>Auto-configuración:</strong> Base de datos y entorno configurados automáticamente</li>
+                                        </ul>
+                                    </div>
+                                    
+                                    <form id="laragon-deploy-form" action="{{ route('proyectos.deploy-without-backup', $tesis->id) }}" method="POST" class="mt-3">
+                                        @csrf
+                                        <button type="submit" class="btn btn-success btn-lg" id="laragon-deploy-btn">
+                                            <i class="fas fa-server"></i> Desplegar con Laragon
+                                        </button>
+                                    </form>
+                                </div>
+                            </div>
+                            
+                            {{-- Sección de progreso oculta para deployment de Laragon --}}
+                            <div class="alert alert-info d-none" id="deployment-progress">
+                                <h5><i class="icon fas fa-spinner fa-spin"></i> Despliegue en Progreso</h5>
+                                <p id="deployment-status-text">Iniciando despliegue con Laragon...</p>
+                                <div class="progress progress-lg mt-2">
+                                    <div class="progress-bar progress-bar-striped progress-bar-animated bg-info" role="progressbar" style="width: 100%"></div>
+                                </div>
+                                <p class="mt-2 small text-muted">Por favor espere mientras se completa el despliegue.</p>
+                            </div>
+                        @else
+                            {{-- Project is not ready - show backup upload form --}}
+                            <div class="alert alert-warning">
+                                <h5><i class="icon fas fa-exclamation-triangle"></i> Configuración Pendiente</h5>
+                                <p>Antes de poder desplegar el proyecto, debe completar la configuración restaurando la base de datos.</p>
+                            </div>
+                            
+                            <form action="{{ route('proyectos.do-deploy', $tesis->id) }}" method="POST" enctype="multipart/form-data">
+                                @csrf
+                                
+                                <!-- Panel de Backups -->
+                                <div class="card card-warning mb-3">
+                                    <div class="card-header">
+                                        <h5 class="card-title mb-0">
+                                            <i class="fas fa-archive"></i> Restaurar Base de Datos <span class="badge badge-warning">REQUERIDO</span>
+                                        </h5>
+                                    </div>
+                                    <div class="card-body">
+                                        <div class="alert alert-warning">
+                                            <strong><i class="fas fa-database"></i> Base de Datos Requerida</strong><br>
+                                            Debe restaurar la base de datos del proyecto antes de poder desplegarlo. 
+                                            Esto configura automáticamente las variables de entorno necesarias.
+                                        </div>
                                     
                                     <div class="alert alert-info">
                                         <strong>Tipos de archivo soportados:</strong>
@@ -169,13 +314,13 @@
                                     <div class="row">
                                         <div class="col-md-8">
                                             <div class="form-group">
-                                                <label for="backup_file">Cargar archivo de backup:</label>
+                                                <label for="backup_file">Cargar archivo de backup: <span class="text-danger">*</span></label>
                                                 <div class="input-group">
                                                     <div class="custom-file">
                                                         <input type="file" class="custom-file-input" id="backup_file" name="backup_file" 
-                                                               accept=".zip,.tar.gz,.tar,.sql" onchange="handleBackupFile(this)">
+                                                               accept=".zip,.tar.gz,.tar,.sql" onchange="handleBackupFile(this)" required>
                                                         <label class="custom-file-label" for="backup_file" id="backup_file_label">
-                                                            Seleccionar archivo de backup (.zip, .sql)
+                                                            Seleccionar archivo de backup (.zip, .sql) - OBLIGATORIO
                                                         </label>
                                                     </div>
                                                     <div class="input-group-append">
@@ -185,8 +330,8 @@
                                                         </button>
                                                     </div>
                                                 </div>
-                                                <small class="form-text text-muted">
-                                                    Formatos soportados: .zip, .tar.gz, .tar, .sql (máximo 100MB)
+                                                <small class="form-text text-danger">
+                                                    <strong>Campo obligatorio.</strong> Formatos soportados: .zip, .tar.gz, .tar, .sql (máximo 100MB)
                                                 </small>
                                             </div>
                                         </div>
@@ -276,10 +421,14 @@
                                 </div>
                             </div>
                             
-                            <button type="submit" class="btn btn-success btn-lg" id="deployButton">
-                                <i class="fas fa-rocket"></i> Desplegar Proyecto
+                            <button type="submit" class="btn btn-success btn-lg" id="deployButton" disabled>
+                                <i class="fas fa-rocket"></i> Desplegar Proyecto y Restaurar Backup
                             </button>
+                            <p class="text-muted mt-2">
+                                <small><i class="fas fa-info-circle"></i> El botón se habilitará cuando seleccione un archivo de backup</small>
+                            </p>
                         </form>
+                        @endif {{-- End of isReadyForDeployment check --}}
                     @endif
                 </div>
             </div>
@@ -642,6 +791,60 @@
             }
         });
         
+        // Manejador específico para el formulario de Laragon
+        $('#laragon-deploy-form').submit(function(e) {
+            e.preventDefault();
+            
+            const form = $(this);
+            const submitBtn = $('#laragon-deploy-btn');
+            
+            // Deshabilitar el botón y mostrar loading
+            submitBtn.prop('disabled', true);
+            submitBtn.html('<i class="fas fa-spinner fa-spin"></i> Desplegando con Laragon...');
+            
+            // Mostrar la sección de progreso
+            $('#deployment-progress').removeClass('d-none');
+            $('#deployment-status-text').text('Iniciando despliegue con Laragon...');
+            
+            // Enviar formulario via AJAX
+            $.ajax({
+                url: form.attr('action'),
+                method: 'POST',
+                data: form.serialize(),
+                success: function(response) {
+                    // Deployment exitoso
+                    Swal.fire({
+                        title: 'Despliegue Exitoso',
+                        text: 'El proyecto se ha desplegado correctamente con Laragon.',
+                        icon: 'success',
+                        confirmButtonText: 'Ver proyecto'
+                    }).then((result) => {
+                        if (result.isConfirmed) {
+                            window.location.reload();
+                        }
+                    });
+                },
+                error: function(xhr, status, error) {
+                    console.error('Error en deployment:', xhr.responseText);
+                    
+                    // Habilitar el botón nuevamente
+                    submitBtn.prop('disabled', false);
+                    submitBtn.html('<i class="fas fa-server"></i> Desplegar con Laragon');
+                    
+                    // Ocultar progreso
+                    $('#deployment-progress').addClass('d-none');
+                    
+                    // Mostrar error
+                    Swal.fire({
+                        title: 'Error en el Despliegue',
+                        text: 'Hubo un error al desplegar el proyecto. Por favor, revise los logs.',
+                        icon: 'error',
+                        confirmButtonText: 'Entendido'
+                    });
+                }
+            });
+        });
+        
         // Auto-refresh page when deployment is in progress
         @if(!empty($tesis->container_status) && $tesis->container_status === 'deploying')
             const refreshInterval = 5000; // 5 seconds
@@ -725,17 +928,21 @@
     // Clear backup file selection
     function clearBackupFile() {
         $('#backup_file').val('');
-        $('#backup_file_label').text('Seleccionar archivo de backup (.zip, .sql)');
+        $('#backup_file_label').text('Seleccionar archivo de backup (.zip, .sql) - OBLIGATORIO');
         $('#backup-file-info').addClass('d-none');
         $('#clear_backup').hide();
         updateDeployButton();
     }
     
-    // Update deploy button text
+    // Update deploy button text and enable/disable state
     function updateDeployButton() {
         const hasFile = $('#backup_file')[0].files.length > 0;
         const hasExistingBackup = $('#existing_backup_id').val() !== '';
         const deployBtn = $('#deployButton');
+        
+        // Habilitar el botón solo si hay archivo o backup existente seleccionado
+        const shouldEnable = hasFile || hasExistingBackup;
+        deployBtn.prop('disabled', !shouldEnable);
         
         if (hasFile) {
             const fileName = $('#backup_file')[0].files[0].name.toLowerCase();
@@ -744,10 +951,13 @@
                 '<i class="fas fa-rocket"></i> Desplegar y Restaurar BD' : 
                 '<i class="fas fa-rocket"></i> Desplegar y Restaurar Backup';
             deployBtn.html(buttonText);
+            deployBtn.removeClass('btn-secondary').addClass('btn-success');
         } else if (hasExistingBackup) {
             deployBtn.html('<i class="fas fa-rocket"></i> Desplegar y Restaurar Backup');
+            deployBtn.removeClass('btn-secondary').addClass('btn-success');
         } else {
-            deployBtn.html('<i class="fas fa-rocket"></i> Desplegar Proyecto');
+            deployBtn.html('<i class="fas fa-rocket"></i> Desplegar Proyecto y Restaurar Backup');
+            deployBtn.removeClass('btn-success').addClass('btn-secondary');
         }
     }
     

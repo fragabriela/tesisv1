@@ -27,6 +27,7 @@ Route::middleware(['auth'])->prefix('proyectos')->name('proyectos.')->group(func
     // Despliegue del proyecto
     Route::get('/{id}/deploy', [ProyectoController::class, 'showDeploy'])->name('deploy');
     Route::post('/{id}/deploy', [ProyectoController::class, 'deploy'])->name('do-deploy');
+    Route::post('/{id}/deploy-without-backup', [ProyectoController::class, 'deployWithoutBackup'])->name('deploy-without-backup');
     
     // Gestión del proyecto
     Route::get('/{id}', [ProyectoController::class, 'show'])->name('show')->middleware('permission:ver proyectos');

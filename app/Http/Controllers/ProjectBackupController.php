@@ -173,6 +173,9 @@ class ProjectBackupController extends Controller
                     'container_id' => $containerId,
                     'container_status' => 'running',
                     'last_deployed' => now(),
+                    'backup_restored' => true,
+                    'env_configured' => true, // Backup restoration configures environment
+                    'backup_restored_at' => now(),
                 ]);
 
                 return response()->json([
