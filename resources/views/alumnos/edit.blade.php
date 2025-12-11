@@ -165,18 +165,4 @@
     </div>
 @stop
 
-@section('css')
-    <link rel="stylesheet" href="{{ asset('vendor/select2/css/select2.min.css') }}">
-    <link rel="stylesheet" href="{{ asset('vendor/select2-bootstrap4-theme/select2-bootstrap4.min.css') }}">
-@stop
-
-@section('js')
-    <script src="{{ asset('vendor/select2/js/select2.full.min.js') }}"></script>
-    <script>
-        $(function () {
-            $('.select2').select2({
-                theme: 'bootstrap4'
-            });
-        });
-    </script>
-@stop
+{{-- Select2 se inicializa globalmente --}}

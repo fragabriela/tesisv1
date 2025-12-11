@@ -41,6 +41,16 @@ class Tutor extends Model
     }
 
     /**
+     * Get the alumnos associated with the tutor.
+     * Many-to-many relationship
+     */
+    public function alumnos()
+    {
+        return $this->belongsToMany(Alumno::class, 'tutor_alumno', 'tutor_id', 'alumno_id')
+                    ->withTimestamps();
+    }
+
+    /**
      * Get the full name of the tutor.
      */
     public function getFullNameAttribute()

@@ -150,27 +150,36 @@
                         </div>
                         
                         <div class="row">
-                            <div class="col-md-6">
+                            <div class="col-md-12 mb-3">
                                 <div class="form-group">
-                                    <label for="alumno_id">Asociar con Alumno:</label>
-                                    <select class="form-control" id="alumno_id" name="alumno_id">
-                                        <option value="">Sin asociar</option>
+                                    <label for="alumno_ids">Asociar con Alumnos:</label>
+                                    <select class="form-control" id="alumno_ids" name="alumno_ids[]" multiple 
+                                            data-placeholder="Buscar y seleccionar alumnos...">
+                                        <!-- Options will be populated dynamically -->
                                     </select>
+                                    <small class="text-muted">Puede seleccionar múltiples alumnos. Use Ctrl+Click para seleccionar varios.</small>
                                 </div>
                             </div>
-                            <div class="col-md-6">
+                            <div class="col-md-12">
                                 <div class="form-group">
                                     <label for="tutor_id">Asociar con Tutor:</label>
-                                    <select class="form-control" id="tutor_id" name="tutor_id">
+                                    <select class="form-control" id="tutor_id" name="tutor_id" 
+                                            data-placeholder="Buscar y seleccionar un tutor...">
                                         <option value="">Sin asociar</option>
                                     </select>
+                                    <small class="text-muted">Un usuario puede tener un rol de tutor</small>
                                 </div>
                             </div>
                         </div>
                         
                         <div class="alert alert-info">
                             <i class="fas fa-info-circle"></i>
-                            <strong>Nota:</strong> Un usuario puede estar asociado tanto con un alumno como con un tutor si es necesario.
+                            <strong>Asociaciones Múltiples:</strong> 
+                            <ul class="mb-0">
+                                <li><strong>Tutores y Alumnos:</strong> Un tutor puede estar asociado con múltiples alumnos</li>
+                                <li><strong>Usuarios Múltiples:</strong> Un usuario puede ser tanto alumno como tutor</li>
+                                <li><strong>Búsqueda Rápida:</strong> Use el buscador para encontrar registros específicos</li>
+                            </ul>
                         </div>
                     </div>
                     <div class="modal-footer">
@@ -322,11 +331,16 @@
             $('#associateRecordsForm').on('submit', function(e) {
                 e.preventDefault();
                 var userId = $('#associate_user_id').val();
+                var alumnoIds = $('#alumno_ids').val() || []; // Get selected values as array
+                var tutorId = $('#tutor_id').val();
+                
                 var formData = {
-                    alumno_id: $('#alumno_id').val(),
-                    tutor_id: $('#tutor_id').val(),
+                    alumno_ids: alumnoIds,
+                    tutor_id: tutorId,
                     _token: $('meta[name="csrf-token"]').attr('content')
                 };
+
+                console.log('Sending association data:', formData);
 
                 $.ajax({
                     url: `/admin/users/${userId}/associate`,
@@ -335,7 +349,12 @@
                     success: function(response) {
                         if (response.success) {
                             $('#associateRecordsModal').modal('hide');
-                            Swal.fire('Éxito', response.message, 'success');
+                            Swal.fire({
+                                title: 'Éxito',
+                                text: response.message,
+                                icon: 'success',
+                                timer: 2000
+                            });
                             table.ajax.reload();
                         }
                     },
@@ -429,23 +448,63 @@
                 $('#associate_user_id').val(data.user.id);
                 $('#associate_user_info').text(`${data.user.name} (${data.user.email})`);
                 
-                // Populate alumnos select
-                var alumnosHtml = '<option value="">Sin asociar</option>';
+                // Populate alumnos select (multiple selection)
+                var alumnosHtml = '';
+                var selectedAlumnos = []; // Array to store selected alumno IDs
+                
+                // If user has alumno relation, add to selected
+                if (data.user.alumno) {
+                    selectedAlumnos.push(data.user.alumno.id);
+                }
+                
+                // If user is a tutor and has associated alumnos
+                if (data.user.tutor && data.user.tutor.alumnos) {
+                    data.user.tutor.alumnos.forEach(function(alumno) {
+                        if (!selectedAlumnos.includes(alumno.id)) {
+                            selectedAlumnos.push(alumno.id);
+                        }
+                    });
+                }
+                
                 data.alumnos.forEach(function(alumno) {
-                    var selected = data.user.alumno && data.user.alumno.id == alumno.id ? 'selected' : '';
-                    alumnosHtml += `<option value="${alumno.id}" ${selected}>${alumno.nombre} ${alumno.apellido} (${alumno.email})</option>`;
+                    var selected = selectedAlumnos.includes(alumno.id) ? 'selected' : '';
+                    var label = `${alumno.nombre} ${alumno.apellido}`;
+                    if (alumno.matricula) {
+                        label += ` (${alumno.matricula})`;
+                    }
+                    if (alumno.email) {
+                        label += ` - ${alumno.email}`;
+                    }
+                    alumnosHtml += `<option value="${alumno.id}" ${selected}>${label}</option>`;
                 });
-                $('#alumno_id').html(alumnosHtml);
+                $('#alumno_ids').html(alumnosHtml);
                 
                 // Populate tutores select
                 var tutoresHtml = '<option value="">Sin asociar</option>';
                 data.tutores.forEach(function(tutor) {
                     var selected = data.user.tutor && data.user.tutor.id == tutor.id ? 'selected' : '';
-                    tutoresHtml += `<option value="${tutor.id}" ${selected}>${tutor.nombre} ${tutor.apellido} (${tutor.email})</option>`;
+                    var label = `${tutor.nombre} ${tutor.apellido}`;
+                    if (tutor.especialidad) {
+                        label += ` (${tutor.especialidad})`;
+                    }
+                    if (tutor.email) {
+                        label += ` - ${tutor.email}`;
+                    }
+                    tutoresHtml += `<option value="${tutor.id}" ${selected}>${label}</option>`;
                 });
                 $('#tutor_id').html(tutoresHtml);
                 
+                // Mostrar el modal
                 $('#associateRecordsModal').modal('show');
+                
+                // Forzar reinicialización de Select2 después de cargar datos
+                setTimeout(function() {
+                    // Usar la función específica para modales
+                    window.initializeSelect2InModal('#associateRecordsModal');
+                }, 300);
+            })
+            .fail(function() {
+                Swal.fire('Error', 'No se pudieron cargar los datos de asociación', 'error');
             });
         }
 

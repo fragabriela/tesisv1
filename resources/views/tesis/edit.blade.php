@@ -46,7 +46,7 @@
 
                         <div class="form-group">
                             <label for="alumno_id">Alumno <span class="text-danger">*</span></label>
-                            <select class="form-control select2 @error('alumno_id') is-invalid @enderror" id="alumno_id" name="alumno_id" required>
+                            <select class="form-control @error('alumno_id') is-invalid @enderror" id="alumno_id" name="alumno_id" required data-placeholder="Buscar y seleccionar un alumno...">
                                 <option value="">Seleccione un alumno</option>
                                 @foreach($alumnos as $alumno)
                                     <option value="{{ $alumno->id }}" {{ old('alumno_id', $tesis->alumno_id) == $alumno->id ? 'selected' : '' }}>
@@ -63,7 +63,7 @@
 
                         <div class="form-group">
                             <label for="tutor_id">Tutor <span class="text-danger">*</span></label>
-                            <select class="form-control select2 @error('tutor_id') is-invalid @enderror" id="tutor_id" name="tutor_id" required>
+                            <select class="form-control @error('tutor_id') is-invalid @enderror" id="tutor_id" name="tutor_id" required data-placeholder="Buscar y seleccionar un tutor...">
                                 <option value="">Seleccione un tutor</option>
                                 @foreach($tutores as $tutor)
                                     <option value="{{ $tutor->id }}" {{ old('tutor_id', $tesis->tutor_id) == $tutor->id ? 'selected' : '' }}>
@@ -102,7 +102,7 @@
                     <div class="col-md-6">
                         <div class="form-group">
                             <label for="estado">Estado <span class="text-danger">*</span></label>
-                            <select class="form-control @error('estado') is-invalid @enderror" id="estado" name="estado" required>
+                            <select class="form-control @error('estado') is-invalid @enderror" id="estado" name="estado" required data-placeholder="Seleccionar estado...">
                                 <option value="pendiente" {{ old('estado', $tesis->estado) == 'pendiente' ? 'selected' : '' }}>Pendiente</option>
                                 <option value="en_progreso" {{ old('estado', $tesis->estado) == 'en_progreso' ? 'selected' : '' }}>En Progreso</option>
                                 <option value="completado" {{ old('estado', $tesis->estado) == 'completado' ? 'selected' : '' }}>Completado</option>
@@ -185,20 +185,13 @@
 @stop
 
 @section('css')
-    <link rel="stylesheet" href="{{ asset('vendor/select2/css/select2.min.css') }}">
-    <link rel="stylesheet" href="{{ asset('vendor/select2-bootstrap4-theme/select2-bootstrap4.min.css') }}">
+    {{-- CSS personalizado aquí --}}
 @stop
 
 @section('js')
-    <script src="{{ asset('vendor/select2/js/select2.full.min.js') }}"></script>
     <script src="{{ asset('vendor/bs-custom-file-input/bs-custom-file-input.min.js') }}"></script>
     <script>
         $(function () {
-            //Initialize Select2 Elements
-            $('.select2').select2({
-                theme: 'bootstrap4'
-            });
-
             // Initialize custom file input
             bsCustomFileInput.init();
         });

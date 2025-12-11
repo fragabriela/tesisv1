@@ -44,9 +44,17 @@ class TesisController extends Controller
                     $query->where('id', 0);
                 }
             } elseif ($user->hasRole('tutor')) {
-                // Tutor solo ve las tesis donde es tutor
+                // Tutor ve las tesis de sus alumnos asociados + las tesis donde es tutor directo
                 if ($user->tutor) {
-                    $query->where('tutor_id', $user->tutor->id);
+                    // Obtener IDs de los alumnos asociados a este tutor
+                    $alumnosAsociadosIds = $user->tutor->alumnos()->pluck('alumnos.id');
+                    
+                    $query->where(function($q) use ($user, $alumnosAsociadosIds) {
+                        // Tesis donde es tutor directo (relación antigua)
+                        $q->where('tutor_id', $user->tutor->id)
+                          // O tesis de alumnos asociados (relación nueva)
+                          ->orWhereIn('alumno_id', $alumnosAsociadosIds);
+                    });
                 } else {
                     // Si no tiene tutor asociado, no ve nada
                     $query->where('id', 0);
@@ -113,8 +121,23 @@ class TesisController extends Controller
      */
     public function create()
     {
-        $alumnos = Alumno::where('estado', 'activo')->get();
-        $tutores = Tutor::where('activo', true)->get();
+        $user = auth()->user();
+        
+        // Filtrar alumnos y tutores según el rol del usuario
+        if ($user->hasRole('tutor') && $user->tutor) {
+            // Si es tutor, solo puede crear tesis para sus alumnos asociados
+            $alumnos = $user->tutor->alumnos()->where('estado', 'activo')->get();
+            $tutores = collect([$user->tutor]); // Solo él mismo como tutor
+        } elseif ($user->hasRole('alumno') && $user->alumno) {
+            // Si es alumno, solo puede crear su propia tesis
+            $alumnos = collect([$user->alumno]);
+            $tutores = Tutor::where('activo', true)->get();
+        } else {
+            // Admin o coordinador pueden ver todos
+            $alumnos = Alumno::where('estado', 'activo')->get();
+            $tutores = Tutor::where('activo', true)->get();
+        }
+        
         return view('tesis.create', compact('alumnos', 'tutores'));
     }
 
@@ -196,8 +219,23 @@ class TesisController extends Controller
     public function edit(string $id)
     {
         $tesis = Tesis::findOrFail($id);
-        $alumnos = Alumno::where('estado', 'activo')->get();
-        $tutores = Tutor::where('activo', true)->get();
+        $user = auth()->user();
+        
+        // Filtrar alumnos y tutores según el rol del usuario
+        if ($user->hasRole('tutor') && $user->tutor) {
+            // Si es tutor, solo puede editar tesis de sus alumnos asociados
+            $alumnos = $user->tutor->alumnos()->where('estado', 'activo')->get();
+            $tutores = collect([$user->tutor]); // Solo él mismo como tutor
+        } elseif ($user->hasRole('alumno') && $user->alumno) {
+            // Si es alumno, solo puede editar su propia tesis
+            $alumnos = collect([$user->alumno]);
+            $tutores = Tutor::where('activo', true)->get();
+        } else {
+            // Admin o coordinador pueden ver todos
+            $alumnos = Alumno::where('estado', 'activo')->get();
+            $tutores = Tutor::where('activo', true)->get();
+        }
+        
         return view('tesis.edit', compact('tesis', 'alumnos', 'tutores'));
     }
 

@@ -36,6 +36,30 @@
 @stop
 
 @section('content')
+    @if(auth()->user()->hasRole('tutor'))
+        @php
+            $tutorAlumnos = auth()->user()->tutor ? auth()->user()->tutor->alumnos : collect();
+        @endphp
+        
+        @if($tutorAlumnos->count() > 0)
+            <div class="alert alert-info">
+                <h5><i class="icon fas fa-info-circle"></i> Información para Tutores</h5>
+                <p>Como tutor, puedes ver las tesis de tus <strong>{{ $tutorAlumnos->count() }} alumno(s) asociado(s)</strong>:</p>
+                <ul class="mb-0">
+                    @foreach($tutorAlumnos as $alumno)
+                        <li>{{ $alumno->nombre }} {{ $alumno->apellido }}</li>
+                    @endforeach
+                </ul>
+                <small class="text-muted">Si no ves tesis en la tabla, significa que estos alumnos aún no tienen tesis creadas.</small>
+            </div>
+        @else
+            <div class="alert alert-warning">
+                <h5><i class="icon fas fa-exclamation-triangle"></i> Sin Alumnos Asociados</h5>
+                <p>No tienes alumnos asociados como tutor. Contacta al administrador para que te asigne alumnos.</p>
+            </div>
+        @endif
+    @endif
+
     <div class="card">
         <div class="card-body">
             <div class="table-responsive">

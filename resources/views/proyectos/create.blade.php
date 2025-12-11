@@ -56,7 +56,7 @@
                     <div class="col-md-6">
                         <div class="form-group">
                             <label for="alumno_id">Alumno *</label>
-                            <select class="form-control" id="alumno_id" name="alumno_id" required>
+                            <select class="form-control" id="alumno_id" name="alumno_id" required data-placeholder="Buscar y seleccionar un alumno...">
                                 <option value="">Seleccione un alumno</option>
                                 @foreach($alumnos as $alumno)
                                     <option value="{{ $alumno->id }}" {{ old('alumno_id') == $alumno->id ? 'selected' : '' }}>
@@ -69,7 +69,7 @@
                     <div class="col-md-6">
                         <div class="form-group">
                             <label for="tutor_id">Tutor *</label>
-                            <select class="form-control" id="tutor_id" name="tutor_id" required>
+                            <select class="form-control" id="tutor_id" name="tutor_id" required data-placeholder="Buscar y seleccionar un tutor...">
                                 <option value="">Seleccione un tutor</option>
                                 @foreach($tutores as $tutor)
                                     <option value="{{ $tutor->id }}" {{ old('tutor_id') == $tutor->id ? 'selected' : '' }}>
@@ -141,13 +141,7 @@
 @section('js')
     <script>
         $(document).ready(function() {
-            // Inicializar Select2 si está disponible
-            if ($.fn.select2) {
-                $('#alumno_id, #tutor_id').select2({
-                    placeholder: 'Seleccione una opción',
-                    width: '100%'
-                });
-            }
+            // Select2 se inicializa globalmente
             
             // Validación del formato de URL de GitHub
             $('form').submit(function(e) {

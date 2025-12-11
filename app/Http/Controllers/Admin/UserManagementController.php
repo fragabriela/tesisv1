@@ -22,7 +22,7 @@ class UserManagementController extends Controller
     public function index(Request $request)
     {
         if ($request->ajax()) {
-            $users = User::with('roles')->select(['id', 'name', 'email', 'created_at']);
+            $users = User::with(['roles', 'alumno', 'tutor.alumnos'])->select(['id', 'name', 'email', 'created_at']);
             
             return DataTables::of($users)
                 ->addIndexColumn()
@@ -42,11 +42,23 @@ class UserManagementController extends Controller
                 })
                 ->addColumn('associated_records', function($user) {
                     $records = [];
+                    
+                    // User as Alumno
                     if ($user->alumno) {
-                        $records[] = '<span class="text-info">Alumno: ' . $user->alumno->nombre . ' ' . $user->alumno->apellido . '</span>';
+                        $records[] = '<span class="text-info"><i class="fas fa-user-graduate"></i> Alumno: ' . $user->alumno->nombre . ' ' . $user->alumno->apellido . '</span>';
                     }
+                    
+                    // User as Tutor
                     if ($user->tutor) {
-                        $records[] = '<span class="text-warning">Tutor: ' . $user->tutor->nombre . ' ' . $user->tutor->apellido . '</span>';
+                        $tutorRecord = '<span class="text-warning"><i class="fas fa-chalkboard-teacher"></i> Tutor: ' . $user->tutor->nombre . ' ' . $user->tutor->apellido . '</span>';
+                        
+                        // Add associated alumnos count
+                        $alumnosCount = $user->tutor->alumnos->count();
+                        if ($alumnosCount > 0) {
+                            $tutorRecord .= ' <small class="text-muted">(' . $alumnosCount . ' alumno' . ($alumnosCount > 1 ? 's' : '') . ')</small>';
+                        }
+                        
+                        $records[] = $tutorRecord;
                     }
                     
                     return !empty($records) ? implode('<br>', $records) : '<span class="text-muted">Sin asociaciones</span>';
@@ -126,7 +138,8 @@ class UserManagementController extends Controller
     public function associateRecords(Request $request, $id)
     {
         $validator = Validator::make($request->all(), [
-            'alumno_id' => 'nullable|exists:alumnos,id',
+            'alumno_ids' => 'nullable|array',
+            'alumno_ids.*' => 'exists:alumnos,id',
             'tutor_id' => 'nullable|exists:tutores,id'
         ]);
 
@@ -135,11 +148,18 @@ class UserManagementController extends Controller
         }
 
         try {
-            $user = User::findOrFail($id);
+            $user = User::with(['alumno', 'tutor'])->findOrFail($id);
 
-            // Associate with alumno
-            if ($request->alumno_id) {
-                $alumno = Alumno::findOrFail($request->alumno_id);
+            // Handle Alumno Association (1:1 relationship with user)
+            if ($request->filled('alumno_ids') && count($request->alumno_ids) > 0) {
+                // For the User-Alumno relationship (1:1), associate with the first selected alumno
+                $firstAlumnoId = $request->alumno_ids[0];
+                
+                // Remove previous association
+                Alumno::where('user_id', $user->id)->update(['user_id' => null]);
+                
+                // Create new association
+                $alumno = Alumno::findOrFail($firstAlumnoId);
                 $alumno->user_id = $user->id;
                 $alumno->save();
             } else {
@@ -147,19 +167,43 @@ class UserManagementController extends Controller
                 Alumno::where('user_id', $user->id)->update(['user_id' => null]);
             }
 
-            // Associate with tutor
+            // Handle Tutor Association and Multiple Alumnos
             if ($request->tutor_id) {
                 $tutor = Tutor::findOrFail($request->tutor_id);
+                
+                // Associate user with tutor (1:1)
+                Tutor::where('user_id', $user->id)->update(['user_id' => null]);
                 $tutor->user_id = $user->id;
                 $tutor->save();
+                
+                // Associate tutor with multiple alumnos (many-to-many)
+                if ($request->filled('alumno_ids')) {
+                    // Sync the relationship (removes old associations and adds new ones)
+                    $tutor->alumnos()->sync($request->alumno_ids);
+                } else {
+                    // Remove all alumno associations for this tutor
+                    $tutor->alumnos()->detach();
+                }
             } else {
                 // Remove tutor association
-                Tutor::where('user_id', $user->id)->update(['user_id' => null]);
+                $oldTutor = Tutor::where('user_id', $user->id)->first();
+                if ($oldTutor) {
+                    $oldTutor->user_id = null;
+                    $oldTutor->save();
+                    
+                    // Optionally, you might want to keep the tutor-alumno relationships
+                    // or remove them. For now, we'll keep them.
+                }
             }
 
             return response()->json([
                 'success' => true,
-                'message' => 'Asociaciones actualizadas exitosamente'
+                'message' => 'Asociaciones actualizadas exitosamente',
+                'associations' => [
+                    'alumno' => $user->fresh('alumno')->alumno,
+                    'tutor' => $user->fresh('tutor.alumnos')->tutor,
+                    'tutor_alumnos_count' => $user->fresh('tutor.alumnos')->tutor ? $user->tutor->alumnos->count() : 0
+                ]
             ]);
         } catch (\Exception $e) {
             return response()->json([
@@ -404,18 +448,18 @@ class UserManagementController extends Controller
      */
     public function getAssociationData($id)
     {
-        $user = User::with(['alumno', 'tutor'])->findOrFail($id);
+        $user = User::with(['alumno', 'tutor.alumnos'])->findOrFail($id);
         
-        // Get unassociated alumnos
-        $alumnos = Alumno::whereNull('user_id')
-            ->orWhere('user_id', $id)
-            ->select(['id', 'nombre', 'apellido', 'email'])
+        // Get ALL alumnos (no restrictions for multiple associations)
+        $alumnos = Alumno::select(['id', 'nombre', 'apellido', 'email', 'matricula'])
+            ->orderBy('nombre')
+            ->orderBy('apellido')
             ->get();
             
-        // Get unassociated tutores
-        $tutores = Tutor::whereNull('user_id')
-            ->orWhere('user_id', $id)
-            ->select(['id', 'nombre', 'apellido', 'email'])
+        // Get ALL tutores (no restrictions for multiple associations)  
+        $tutores = Tutor::select(['id', 'nombre', 'apellido', 'email', 'especialidad'])
+            ->orderBy('nombre')
+            ->orderBy('apellido')
             ->get();
 
         return response()->json([

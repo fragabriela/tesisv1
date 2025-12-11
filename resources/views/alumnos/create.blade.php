@@ -114,7 +114,7 @@
 
                         <div class="form-group">
                             <label for="id_carrera">Carrera <span class="text-danger">*</span></label>
-                            <select class="form-control select2 @error('id_carrera') is-invalid @enderror" id="id_carrera" name="id_carrera" required>
+                            <select class="form-control @error('id_carrera') is-invalid @enderror" id="id_carrera" name="id_carrera" required data-placeholder="Buscar y seleccionar una carrera...">
                                 <option value="">Seleccione una carrera</option>
                                 @foreach($carreras as $carrera)
                                     <option value="{{ $carrera->id }}" {{ old('id_carrera') == $carrera->id ? 'selected' : '' }}>
@@ -141,7 +141,7 @@
 
                         <div class="form-group">
                             <label for="estado">Estado <span class="text-danger">*</span></label>
-                            <select class="form-control @error('estado') is-invalid @enderror" id="estado" name="estado" required>
+                            <select class="form-control @error('estado') is-invalid @enderror" id="estado" name="estado" required data-placeholder="Seleccionar estado...">
                                 <option value="activo" {{ old('estado') == 'activo' ? 'selected' : '' }}>Activo</option>
                                 <option value="inactivo" {{ old('estado') == 'inactivo' ? 'selected' : '' }}>Inactivo</option>
                             </select>
@@ -169,18 +169,4 @@
     </div>
 @stop
 
-@section('css')
-    <link rel="stylesheet" href="{{ asset('vendor/select2/css/select2.min.css') }}">
-    <link rel="stylesheet" href="{{ asset('vendor/select2-bootstrap4-theme/select2-bootstrap4.min.css') }}">
-@stop
-
-@section('js')
-    <script src="{{ asset('vendor/select2/js/select2.full.min.js') }}"></script>
-    <script>
-        $(function () {
-            $('.select2').select2({
-                theme: 'bootstrap4'
-            });
-        });
-    </script>
-@stop
+{{-- Select2 se inicializa globalmente --}}
