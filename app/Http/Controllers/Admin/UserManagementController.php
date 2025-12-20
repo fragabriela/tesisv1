@@ -196,13 +196,16 @@ class UserManagementController extends Controller
                 }
             }
 
+            // Reload relationships
+            $user = $user->fresh(['alumno', 'tutor.alumnos']);
+            
             return response()->json([
                 'success' => true,
                 'message' => 'Asociaciones actualizadas exitosamente',
                 'associations' => [
-                    'alumno' => $user->fresh('alumno')->alumno,
-                    'tutor' => $user->fresh('tutor.alumnos')->tutor,
-                    'tutor_alumnos_count' => $user->fresh('tutor.alumnos')->tutor ? $user->tutor->alumnos->count() : 0
+                    'alumno' => $user->alumno,
+                    'tutor' => $user->tutor,
+                    'tutor_alumnos_count' => $user->tutor ? $user->tutor->alumnos->count() : 0
                 ]
             ]);
         } catch (\Exception $e) {
