@@ -165,7 +165,10 @@ class ProjectBackupController extends Controller
                 throw new Exception('No se especificó container_id');
             }
 
-            $success = $this->backupService->restoreBackupToContainer($backup, $containerId);
+            if ($containerId !== $tesis->container_id) {
+                throw new Exception('El destino debe ser el proyecto al que pertenece el backup.');
+            }
+            $success = $this->backupService->restoreBackupToContainer($tesis, $backup);
             
             if ($success) {
                 // Actualizar información del contenedor en la tesis
@@ -248,7 +251,7 @@ class ProjectBackupController extends Controller
                 'success' => true,
                 'message' => 'Backup pre-despliegue creado',
                 'data' => $backup,
-                'restore_url' => route('tesis.backups.restore', [$tesis, $backup]),
+                'restore_url' => route('proyectos.backups.restore', [$tesis, $backup]),
             ]);
 
         } catch (Exception $e) {

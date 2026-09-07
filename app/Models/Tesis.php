@@ -27,6 +27,7 @@ class Tesis extends Model
         'project_type',
         'container_id',
         'container_status',
+        'deployment_error',
         'project_url',
         'project_config',
         'last_deployed',

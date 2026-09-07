@@ -152,7 +152,7 @@
                     </div>                    @if(!empty($tesis->container_id) && $tesis->container_status === 'running')
                         <div class="alert alert-success">
                             <h5><i class="icon fas fa-check"></i> Proyecto Desplegado</h5>
-                            <p>El proyecto ya está desplegado y en ejecución en Laragon.</p>
+                            <p>El proyecto ya está desplegado y en ejecución con <strong>{{ ucfirst($tesis->project_config['deployment_type'] ?? 'Laragon') }}</strong>.</p>
                             <p>Estado del proyecto: <span class="badge badge-success">En ejecución</span></p>
                             
                             <div class="mt-3">
@@ -178,6 +178,18 @@
                                     <i class="fas fa-file-alt"></i> Ver Logs
                                 </a>
                             </div>
+                            <form action="{{ route('proyectos.do-deploy', $tesis->id) }}" method="POST" class="form-inline mt-3">
+                                @csrf
+                                <label class="mr-2" for="running-deployment-target">Cambiar o volver a desplegar:</label>
+                                <select class="form-control mr-2" id="running-deployment-target" name="deployment_target">
+                                    <option value="docker" @selected(($tesis->project_config['deployment_type'] ?? 'docker') !== 'laragon')>Docker (predeterminado)</option>
+                                    <option value="laragon" @selected(($tesis->project_config['deployment_type'] ?? null) === 'laragon')>Laragon</option>
+                                </select>
+                                <input type="hidden" name="run_migrations" value="1">
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="fas fa-rocket"></i> Desplegar
+                                </button>
+                            </form>
                         </div>
                     @elseif(!empty($tesis->container_status) && $tesis->container_status === 'deploying')
                         <div class="alert alert-info" id="deployment-progress">
@@ -221,6 +233,7 @@
                             
                             <form action="{{ route('proyectos.do-deploy', $tesis->id) }}" method="POST" class="mt-3">
                                 @csrf
+                                <input type="hidden" name="deployment_target" value="{{ $tesis->project_config['deployment_type'] ?? 'docker' }}">
                                 <button type="submit" class="btn btn-success">
                                     <i class="fas fa-play"></i> Iniciar Proyecto
                                 </button>
@@ -244,10 +257,10 @@
                                 <div class="card-body">
                                     <p>Al hacer clic en el botón, el sistema:</p>
                                     <ol>
-                                        <li>Copiará el proyecto a la carpeta de Laragon</li>
-                                        <li>Configurará automáticamente la base de datos MySQL</li>
+                                        <li>Copiará el proyecto a la carpeta del server</li>
+                                        <li>Configurará automáticamente la base de datos</li>
                                         <li>Instalará las dependencias necesarias</li>
-                                        <li>Ejecutará las migraciones de la base de datos</li>
+                                        <li>Importará el backup seleccionado o ejecutará las migraciones disponibles</li>
                                         <li>Configurará una URL limpia (.test)</li>
                                     </ol>
                                     
@@ -261,10 +274,62 @@
                                         </ul>
                                     </div>
                                     
-                                    <form id="laragon-deploy-form" action="{{ route('proyectos.deploy-without-backup', $tesis->id) }}" method="POST" class="mt-3">
+                                    <form id="project-database-deploy-form" action="{{ route('proyectos.do-deploy', $tesis->id) }}" method="POST" enctype="multipart/form-data" class="mt-3">
                                         @csrf
-                                        <button type="submit" class="btn btn-success btn-lg" id="laragon-deploy-btn">
-                                            <i class="fas fa-server"></i> Desplegar con Laragon
+                                        <div class="form-group">
+                                            <label>Destino del despliegue</label>
+                                            <div class="custom-control custom-radio mb-2">
+                                                <input class="custom-control-input" type="radio" id="deployment-target-docker" name="deployment_target" value="docker" checked>
+                                                <label for="deployment-target-docker" class="custom-control-label">
+                                                    <i class="fab fa-docker text-primary"></i> Docker <span class="badge badge-primary">Predeterminado</span>
+                                                </label>
+                                                <small class="form-text text-muted">Crea contenedores aislados para la aplicaciÃ³n y MySQL, con volumen persistente y puerto automÃ¡tico.</small>
+                                            </div>
+                                            <div class="custom-control custom-radio">
+                                                <input class="custom-control-input" type="radio" id="deployment-target-laragon" name="deployment_target" value="laragon">
+                                                <label for="deployment-target-laragon" class="custom-control-label">
+                                                    <i class="fas fa-server text-success"></i> Laragon
+                                                </label>
+                                                <small class="form-text text-muted">Ejecuta el proyecto directamente en Apache y MySQL locales con dominio <code>.localhost</code>.</small>
+                                            </div>
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="project-env-file">Archivo .env del proyecto (opcional)</label>
+                                            <input type="file" id="project-env-file" name="env_file" class="form-control-file">
+                                            <small class="form-text text-muted">Se creará la base indicada en DB_DATABASE usando DB_HOST, DB_PORT, DB_USERNAME y DB_PASSWORD. Debe ser MySQL y el usuario debe tener permiso para crearla. Se conservan las demás variables y APP_KEY; la URL se adapta a Laragon. Máximo 128 KB.</small>
+                                        </div>
+                                        <div class="form-check mb-2">
+                                            <input type="hidden" name="run_migrations" value="0">
+                                            <input type="checkbox" class="form-check-input" id="project-run-migrations" name="run_migrations" value="1" checked>
+                                            <label for="project-run-migrations" class="form-check-label">Ejecutar migraciones pendientes</label>
+                                        </div>
+                                        <div class="alert alert-light border mb-3">
+                                            <i class="fas fa-magic"></i>
+                                            El sistema detectará y ejecutará automáticamente las migraciones y el <code>DatabaseSeeder</code> durante el primer despliegue. En los siguientes despliegues no repetirá los seeders.
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="project-database-backup">Backup de base de datos (opcional)</label>
+                                            <input type="file" id="project-database-backup" name="backup_file" class="form-control-file" accept=".sql,.zip,.tar,.gz">
+                                            <small class="form-text text-muted">Un backup completo se importa directamente, sin migraciones previas. Para crear solamente la base, no seleccione backup y desmarque migraciones y seeders. SQL MySQL/MariaDB o un comprimido con un único SQL; máximo 100 MB.</small>
+                                        </div>
+                                        <div class="form-check mb-3">
+                                            <input class="form-check-input" type="checkbox" name="backup_data_only" value="1" id="backup-data-only">
+                                            <label class="form-check-label" for="backup-data-only">El backup contiene solo datos: ejecutar migraciones antes de importarlo</label>
+                                        </div>
+                                        @if($tesis->backups()->exists())
+                                            <div class="form-group">
+                                                <label for="project-existing-backup">O usar un backup guardado</label>
+                                                <select id="project-existing-backup" name="existing_backup_id" class="form-control">
+                                                    <option value="">Seleccionar backup</option>
+                                                    @foreach($tesis->backups()->latest()->get() as $backup)
+                                                        <option value="{{ $backup->id }}">{{ $backup->description ?: $backup->file_name ?: 'Backup '.$backup->id }}</option>
+                                                    @endforeach
+                                                </select>
+                                                <small class="form-text text-muted">El backup guardado tiene prioridad sobre el archivo cargado.</small>
+                                            </div>
+                                        @endif
+                                        <button type="submit" class="btn btn-primary btn-lg" id="laragon-deploy-btn">
+                                            <i class="fab fa-docker"></i> Desplegar con Docker
                                         </button>
                                     </form>
                                 </div>
@@ -792,6 +857,22 @@
         });
         
         // Manejador específico para el formulario de Laragon
+        $('#project-database-deploy-form').on('submit', function() {
+            const target = $('input[name="deployment_target"]:checked').val();
+            $('#laragon-deploy-btn').prop('disabled', true)
+                .html('<i class="fas fa-spinner fa-spin"></i> Desplegando con ' + (target === 'docker' ? 'Docker' : 'Laragon') + '...');
+        });
+
+        $('input[name="deployment_target"]').on('change', function() {
+            const docker = this.value === 'docker';
+            $('#laragon-deploy-btn')
+                .toggleClass('btn-primary', docker)
+                .toggleClass('btn-success', !docker)
+                .html(docker
+                    ? '<i class="fab fa-docker"></i> Desplegar con Docker'
+                    : '<i class="fas fa-server"></i> Desplegar con Laragon');
+        });
+
         $('#laragon-deploy-form').submit(function(e) {
             e.preventDefault();
             

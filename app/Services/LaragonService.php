@@ -14,17 +14,18 @@ class LaragonService
     private $mysqlHost;
     private $mysqlUser;
     private $mysqlPassword;
+    private $databaseService;
     
-    public function __construct()
+    public function __construct(ProjectDatabaseService $databaseService)
     {
-        // Configuración de Laragon
-        $this->laragonPath = 'C:\laragon';
-        $this->wwwPath = $this->laragonPath . '\www';
-        $this->mysqlHost = '127.0.0.1';
-        $this->mysqlUser = 'root';
-        $this->mysqlPassword = ''; // Laragon usa contraseña vacía por defecto
+        $this->databaseService = $databaseService;
+        $this->laragonPath = config('projects.laragon_path');
+        $this->wwwPath = $this->laragonPath . '/www';
+        $this->mysqlHost = config('projects.mysql.host');
+        $this->mysqlUser = config('projects.mysql.username');
+        $this->mysqlPassword = config('projects.mysql.password');
     }
-    
+
     /**
      * Verificar si Laragon está disponible
      */
@@ -55,7 +56,7 @@ class LaragonService
     /**
      * Desplegar proyecto en Laragon
      */
-    public function deployProject(Tesis $tesis): array
+    public function deployProject(Tesis $tesis, bool $withBackup = false, array $options = []): array
     {
         try {
             Log::info("LARAGON SERVICE: Starting deployment for tesis {$tesis->id}");
@@ -68,6 +69,19 @@ class LaragonService
             // Generar nombre de proyecto
             $projectName = $this->generateProjectName($tesis);
             $projectPath = $this->wwwPath . '\\' . $projectName;
+            $environment = $options['env_content'] ?? null;
+            if ($environment === null && ($tesis->project_config['custom_env'] ?? false)) {
+                if (!is_file($projectPath.'/.env')) {
+                    throw new \RuntimeException('Vuelva a cargar el .env del proyecto para conservar su conexión.');
+                }
+                $environment = file_get_contents($projectPath.'/.env');
+            }
+            $databaseService = $environment !== null ? $this->databaseService->forEnvironment($environment) : $this->databaseService;
+            $database = $environment !== null ? \Dotenv\Dotenv::parse($environment)['DB_DATABASE'] : str_replace('-', '_', $projectName);
+            $this->databaseService->validateDatabase(str_replace('-', '_', $projectName));
+            if (realpath($projectPath) && strcasecmp(realpath($projectPath), realpath(base_path())) === 0) {
+                throw new \RuntimeException('El proyecto no puede reemplazar el directorio del sistema.');
+            }
             
             Log::info("Project name: $projectName");
             Log::info("Project path: $projectPath");
@@ -76,27 +90,27 @@ class LaragonService
             if (!$this->copyProjectFiles($tesis, $projectPath)) {
                 throw new \Exception('Error copiando archivos del proyecto');
             }
+            $capabilities = $databaseService->inspectProject($projectPath);
             
             // Configurar .env para Laragon
-            if (!$this->configureLaragonEnv($projectPath, $projectName)) {
-                throw new \Exception('Error configurando archivo .env');
-            }
+            $databaseService->create($database);
+            $capabilities['database_was_empty'] = !$databaseService->hasTables($database);
+            $databaseService->configureEnvironment($projectPath, $projectName, $database, $environment);
             
             // Instalar dependencias
-            if (!$this->installDependencies($projectPath)) {
-                Log::warning('Advertencia: No se pudieron instalar todas las dependencias');
+            if (!$this->installDependencies($projectPath, (bool) $capabilities['seeder_found'])) {
+                throw new \RuntimeException('No se pudieron instalar las dependencias del proyecto.');
             }
+            $capabilities['frontend_built'] = app(ProjectFrontendService::class)->build($projectPath);
             
-            // Ejecutar migraciones
-            if (!$this->runMigrations($projectPath)) {
-                Log::warning('Advertencia: No se pudieron ejecutar las migraciones');
+            if (!$withBackup && ($options['run_migrations'] ?? true)) {
+                $databaseService->initialize($projectPath, $database);
             }
-            
             // Generar URL del proyecto
             // Configurar automáticamente el virtual host y hosts file
             $this->configureLaragonProject($projectName, $projectPath);
             
-            $projectUrl = "http://{$projectName}.test";
+            $projectUrl = "http://{$projectName}.localhost";
             
             Log::info("Project deployed successfully at: $projectUrl");
             
@@ -108,7 +122,10 @@ class LaragonService
                     'external_port' => '80', // Laragon siempre usa puerto 80
                     'project_name' => $projectName,
                     'project_path' => $projectPath,
-                    'deployment_type' => 'laragon'
+                    'deployment_type' => 'laragon',
+                    'database_name' => $database,
+                    'custom_env' => $environment !== null,
+                    'capabilities' => $capabilities
                 ],
                 'status' => 'success',
                 'message' => 'Proyecto desplegado exitosamente en Laragon'
@@ -125,22 +142,13 @@ class LaragonService
      */
     private function generateProjectName(Tesis $tesis): string
     {
-        $baseName = Str::slug($tesis->titulo, '-');
-        if (empty($baseName)) {
-            $baseName = 'proyecto-' . $tesis->id;
+        $existing = $tesis->project_config['project_name'] ?? null;
+        if ($existing && preg_match('/\A[a-z0-9][a-z0-9-]{0,63}\z/', $existing)) {
+            return $existing;
         }
-        
-        // Asegurar nombre único
-        $projectName = $baseName;
-        $counter = 1;
-        while (is_dir($this->wwwPath . '\\' . $projectName)) {
-            $projectName = $baseName . '-' . $counter;
-            $counter++;
-        }
-        
-        return $projectName;
+        return substr(Str::slug($tesis->titulo) ?: 'demo', 0, 30).'-proyecto-'.$tesis->id;
     }
-    
+
     /**
      * Copiar archivos del repositorio al directorio de Laragon
      */
@@ -157,7 +165,7 @@ class LaragonService
             Log::info("Copying files from $sourcePath to $targetPath");
             
             // Crear directorio de destino
-            if (!File::makeDirectory($targetPath, 0755, true, true)) {
+            if (!is_dir($targetPath) && !File::makeDirectory($targetPath, 0755, true, true)) {
                 Log::error("Failed to create target directory: $targetPath");
                 return false;
             }
@@ -179,231 +187,48 @@ class LaragonService
      */
     private function configureLaragonEnv(string $projectPath, string $projectName): bool
     {
-        try {
-            $envPath = $projectPath . '\\.env';
-            $envExamplePath = $projectPath . '\\.env.example';
-            
-            // Copiar .env.example si .env no existe
-            if (!file_exists($envPath) && file_exists($envExamplePath)) {
-                copy($envExamplePath, $envPath);
-            }
-            
-            // Configuración base para Laragon
-            $envConfig = [
-                'APP_NAME' => $projectName,
-                'APP_ENV' => 'local',
-                'APP_KEY' => 'base64:' . base64_encode(Str::random(32)),
-                'APP_DEBUG' => 'true',
-                'APP_URL' => "http://{$projectName}.test",
-                
-                'DB_CONNECTION' => 'mysql',
-                'DB_HOST' => $this->mysqlHost,
-                'DB_PORT' => '3306',
-                'DB_DATABASE' => str_replace('-', '_', $projectName),
-                'DB_USERNAME' => $this->mysqlUser,
-                'DB_PASSWORD' => $this->mysqlPassword,
-            ];
-            
-            // Crear base de datos
-            $this->createDatabase($envConfig['DB_DATABASE']);
-            
-            // Actualizar archivo .env
-            $envContent = file_exists($envPath) ? file_get_contents($envPath) : '';
-            
-            foreach ($envConfig as $key => $value) {
-                if (preg_match("/^{$key}=.*/m", $envContent)) {
-                    $envContent = preg_replace("/^{$key}=.*/m", "{$key}={$value}", $envContent);
-                } else {
-                    $envContent .= "\n{$key}={$value}";
-                }
-            }
-            
-            file_put_contents($envPath, $envContent);
-            
-            Log::info("Environment configured successfully");
-            return true;
-            
-        } catch (\Exception $e) {
-            Log::error("Error configuring environment: " . $e->getMessage());
-            return false;
-        }
+        $database = str_replace('-', '_', $projectName);
+        $this->databaseService->create($database);
+        $this->databaseService->configureEnvironment($projectPath, $projectName, $database);
+        return true;
     }
-    
+
     /**
      * Crear base de datos MySQL
      */
     private function createDatabase(string $databaseName): bool
     {
-        try {
-            // Usar la ruta completa de MySQL en Laragon
-            $mysqlPath = 'C:\laragon\bin\mysql\mysql-8.0.30-winx64\bin\mysql.exe';
-            
-            $command = "\"{$mysqlPath}\" -h{$this->mysqlHost} -u{$this->mysqlUser}";
-            if (!empty($this->mysqlPassword)) {
-                $command .= " -p{$this->mysqlPassword}";
-            }
-            $command .= " -e \"CREATE DATABASE IF NOT EXISTS `{$databaseName}`;\"";
-            
-            exec($command . ' 2>&1', $output, $returnCode);
-            
-            if ($returnCode === 0) {
-                Log::info("Database '{$databaseName}' created successfully");
-                return true;
-            } else {
-                Log::warning("Failed to create database: " . implode("\n", $output));
-                return false;
-            }
-            
-        } catch (\Exception $e) {
-            Log::error("Error creating database: " . $e->getMessage());
-            return false;
-        }
+        $this->databaseService->create($databaseName);
+        return true;
     }
-    
+
     /**
      * Instalar dependencias de Composer
      */
-    private function installDependencies(string $projectPath): bool
+    private function installDependencies(string $projectPath, bool $includeDev = false): bool
     {
-        try {
-            $composerPath = $projectPath . '\\composer.json';
-            if (!file_exists($composerPath)) {
-                Log::info("No composer.json found, skipping dependency installation");
-                return true;
-            }
-            
-            Log::info("Installing Composer dependencies");
-            
-            // Verificar si vendor ya existe
-            if (is_dir($projectPath . '\\vendor')) {
-                Log::info("Vendor directory already exists, skipping composer install");
-                return true;
-            }
-            
-            // Configurar Composer para evitar problemas de SSL y timeout
-            $composerConfig = [
-                "cd /d \"{$projectPath}\" && composer config --global disable-tls true",
-                "cd /d \"{$projectPath}\" && composer config --global secure-http false",
-                "cd /d \"{$projectPath}\" && composer config --global process-timeout 600"
-            ];
-            
-            foreach ($composerConfig as $config) {
-                exec($config . ' 2>&1', $output, $returnCode);
-            }
-            
-            // Usar comandos más robustos con timeouts y sin plataforma específica
-            $commands = [
-                "cd /d \"{$projectPath}\" && composer install --no-interaction --ignore-platform-reqs --no-dev --prefer-dist",
-                "cd /d \"{$projectPath}\" && composer install --no-interaction --ignore-platform-reqs --prefer-dist",
-                "cd /d \"{$projectPath}\" && composer install --no-interaction --no-scripts --ignore-platform-reqs"
-            ];
-            
-            foreach ($commands as $command) {
-                Log::info("Executing: $command");
-                
-                // Ejecutar comando con timeout limitado
-                $descriptorspec = [
-                    0 => ["pipe", "r"],
-                    1 => ["pipe", "w"],
-                    2 => ["pipe", "w"]
-                ];
-                
-                $process = proc_open($command, $descriptorspec, $pipes);
-                
-                if (is_resource($process)) {
-                    // Dar tiempo limitado para la instalación
-                    stream_set_timeout($pipes[1], 300); // 5 minutos
-                    
-                    $output = stream_get_contents($pipes[1]);
-                    $error = stream_get_contents($pipes[2]);
-                    
-                    fclose($pipes[0]);
-                    fclose($pipes[1]);
-                    fclose($pipes[2]);
-                    
-                    $returnCode = proc_close($process);
-                    
-                    if ($returnCode === 0) {
-                        Log::info("Dependencies installed successfully");
-                        return true;
-                    }
-                    
-                    Log::warning("Command failed with code $returnCode: $error");
-                } else {
-                    Log::error("Failed to start process: $command");
-                }
-            }
-            
-            Log::warning("All composer commands failed, but continuing deployment");
-            return true; // Cambiar a true para no bloquear el deployment
-            
-        } catch (\Exception $e) {
-            Log::error("Error installing dependencies: " . $e->getMessage());
-            return true; // Continuar incluso si falla
+        if (!is_file($projectPath.'/composer.json')) {
+            return true;
         }
+        $autoloadExists = is_file($projectPath.'/vendor/autoload.php');
+        $fakerNeeded = $includeDev && !is_file($projectPath.'/vendor/fakerphp/faker/src/Faker/Factory.php');
+        if (!$autoloadExists || $fakerNeeded) {
+            app(ProjectComposerService::class)->install($projectPath, $includeDev);
+        }
+        return true;
     }
-    
+
     /**
      * Ejecutar migraciones de Laravel
      */
     private function runMigrations(string $projectPath): bool
     {
-        try {
-            $artisanPath = $projectPath . '\\artisan';
-            if (!file_exists($artisanPath)) {
-                Log::info("No artisan found, skipping migrations");
-                return true;
-            }
-            
-            Log::info("Ejecutando migraciones de Laravel");
-            
-            // Comando para ejecutar migraciones
-            $command = "cd /d \"{$projectPath}\" && php artisan migrate --force";
-            
-            // Ejecutar comando con timeout
-            $descriptorspec = [
-                0 => ["pipe", "r"],
-                1 => ["pipe", "w"], 
-                2 => ["pipe", "w"]
-            ];
-            
-            $process = proc_open($command, $descriptorspec, $pipes);
-            
-            if (is_resource($process)) {
-                stream_set_timeout($pipes[1], 60); // 1 minuto para migraciones
-                
-                $output = stream_get_contents($pipes[1]);
-                $error = stream_get_contents($pipes[2]);
-                
-                fclose($pipes[0]);
-                fclose($pipes[1]);
-                fclose($pipes[2]);
-                
-                $returnCode = proc_close($process);
-                
-                if ($returnCode === 0) {
-                    Log::info("Migraciones ejecutadas exitosamente");
-                    Log::info("Output de migraciones: " . $output);
-                    
-                    // Ejecutar seeders si existen
-                    $this->runSeeders($projectPath);
-                    
-                    return true;
-                } else {
-                    Log::warning("Error ejecutando migraciones: " . $error);
-                    Log::warning("Output: " . $output);
-                    return false;
-                }
-            }
-            
-            return false;
-            
-        } catch (\Exception $e) {
-            Log::error("Error ejecutando migraciones: " . $e->getMessage());
-            return false;
+        if (is_file($projectPath.'/artisan')) {
+            $this->databaseService->runArtisan($projectPath, ['migrate', '--force', '--no-interaction']);
         }
+        return true;
     }
-    
+
     /**
      * Ejecutar seeders básicos si existen
      */
@@ -439,7 +264,7 @@ class LaragonService
         
         $files = scandir($source);
         foreach ($files as $file) {
-            if ($file === '.' || $file === '..') {
+            if (in_array($file, ['.', '..', '.git']) || ($file === '.env' && is_file($destination . '/.env'))) {
                 continue;
             }
             
@@ -555,7 +380,7 @@ class LaragonService
             Log::info("Repository cloned successfully to: $tempPath");
             
             // ¡NUEVO! Preparar automáticamente el proyecto en Laragon
-            $this->prepareProjectInLaragon($tempPath, $githubUrl);
+            // Database preparation happens only during deployment.
             
             return $tempPath;
             
@@ -684,11 +509,7 @@ class LaragonService
             // 1. Crear virtual host
             $this->createVirtualHost($projectName, $projectPath);
             
-            // 2. Agregar entrada al archivo hosts
-            $this->addHostsEntry($projectName);
-            
-            // 3. Recargar Apache de forma suave (sin reinicio completo)
-            $this->reloadApache();
+            // El virtual host global *.localhost reconoce el proyecto sin reiniciar Apache.
             
             Log::info("Proyecto configurado exitosamente en Laragon");
             return true;
@@ -708,10 +529,11 @@ class LaragonService
         $vhostPath = 'C:\laragon\etc\apache2\sites-enabled\auto.' . $projectName . '.test.conf';
         
         $vhostContent = 'define ROOT "' . str_replace('\\', '/', $publicPath) . '"' . "\n";
-        $vhostContent .= 'define SITE "' . $projectName . '.test"' . "\n\n";
+        $vhostContent .= 'define SITE "' . $projectName . '.localhost"' . "\n\n";
         $vhostContent .= '<VirtualHost *:80>' . "\n";
         $vhostContent .= '    DocumentRoot "${ROOT}"' . "\n";
         $vhostContent .= '    ServerName ${SITE}' . "\n";
+        $vhostContent .= '    ServerAlias ' . $projectName . '.test' . "\n";
         $vhostContent .= '    ServerAlias *.${SITE}' . "\n";
         $vhostContent .= '    <Directory "${ROOT}">' . "\n";
         $vhostContent .= '        AllowOverride All' . "\n";
@@ -721,6 +543,7 @@ class LaragonService
         $vhostContent .= '<VirtualHost *:443>' . "\n";
         $vhostContent .= '    DocumentRoot "${ROOT}"' . "\n";
         $vhostContent .= '    ServerName ${SITE}' . "\n";
+        $vhostContent .= '    ServerAlias ' . $projectName . '.test' . "\n";
         $vhostContent .= '    ServerAlias *.${SITE}' . "\n";
         $vhostContent .= '    <Directory "${ROOT}">' . "\n";
         $vhostContent .= '        AllowOverride All' . "\n";

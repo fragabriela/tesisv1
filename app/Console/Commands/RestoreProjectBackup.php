@@ -104,11 +104,10 @@ class RestoreProjectBackup extends Command
 
             // Paso 3: Restaurar archivos
             $this->line("Restaurando archivos y base de datos...");
-            $result = $this->projectBackupService->restoreBackupToContainer(
-                $backup,
-                $containerId,
-                $port
-            );
+            if ($containerId && $containerId !== $backup->tesis->container_id) {
+                throw new \RuntimeException('El destino debe ser el proyecto al que pertenece el backup.');
+            }
+            $result = $this->projectBackupService->restoreBackupToContainer($backup->tesis, $backup);
             $bar->advance();
 
             // Paso 4: Finalizar
@@ -116,27 +115,14 @@ class RestoreProjectBackup extends Command
             $bar->advance();
             $bar->finish();
 
-            if ($result['success']) {
+            if ($result) {
                 $this->newLine();
                 $this->info('✅ Restauración completada exitosamente!');
                 
-                if (isset($result['container_id'])) {
-                    $this->info("Contenedor creado: {$result['container_id']}");
-                }
-                
-                if (isset($result['access_url'])) {
-                    $this->info("URL de acceso: {$result['access_url']}");
-                }
-
-                if (isset($result['credentials'])) {
-                    $this->info('Credenciales por defecto:');
-                    foreach ($result['credentials'] as $role => $creds) {
-                        $this->line("  {$role}: {$creds['email']} / {$creds['password']}");
-                    }
-                }
+                $backup->tesis->update(['backup_restored' => true, 'backup_restored_at' => now()]);
 
             } else {
-                $this->error('❌ Error durante la restauración: ' . ($result['message'] ?? 'Error desconocido'));
+                $this->error('No se pudo restaurar la base de datos. Revise los logs.');
                 return 1;
             }
 

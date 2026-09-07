@@ -24,6 +24,44 @@
 @stop
 
 @section('content')
+    @if($tesis->deployment_error)
+        <div class="alert alert-danger">{{ $tesis->deployment_error }}</div>
+    @endif
+    @php($testCredentials = $tesis->project_config['test_credentials'] ?? [])
+    @php($capabilities = $tesis->project_config['capabilities'] ?? [])
+    @if(!empty($capabilities))
+        <div class="alert alert-info">
+            <h5><i class="fas fa-clipboard-check"></i> Preparación automática</h5>
+            <span class="badge badge-{{ ($capabilities['env_found'] ?? false) ? 'success' : 'primary' }} mr-2">
+                {{ ($capabilities['env_found'] ?? false) ? '.env encontrado y adaptado' : '.env creado automáticamente' }}
+            </span>
+            <span class="badge badge-primary mr-2">
+                {{ $capabilities['migrations_found'] ?? 0 }} migraciones encontradas
+            </span>
+            <span class="badge badge-{{ ($tesis->project_config['seeders_executed'] ?? false) ? 'success' : 'secondary' }}">
+                {{ ($tesis->project_config['seeders_executed'] ?? false) ? 'Seeders ejecutados' : (($capabilities['seeder_found'] ?? false) ? 'Seeder detectado' : 'Sin DatabaseSeeder') }}
+            </span>
+            @if(array_key_exists('frontend_built', $capabilities))
+                <span class="badge badge-success ml-2">Frontend verificado</span>
+            @endif
+        </div>
+    @endif
+    @if(!empty($testCredentials))
+        <div class="alert alert-success">
+            <h5><i class="fas fa-user-check"></i> Datos para probar el proyecto</h5>
+            <p class="mb-2">Cuentas encontradas en los seeders ejecutados:</p>
+            <div class="table-responsive">
+                <table class="table table-sm table-bordered bg-white mb-0">
+                    <thead><tr><th>Correo</th><th>Contraseña</th></tr></thead>
+                    <tbody>
+                        @foreach($testCredentials as $credential)
+                            <tr><td>{{ $credential['email'] }}</td><td><code>{{ $credential['password'] }}</code></td></tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    @endif
     <div class="row">
         <div class="col-md-8">
             <div class="card">
@@ -209,16 +247,12 @@
                         
                         <dt>Estado</dt>
                         <dd>
-                            @php
-                                $badgeClass = '';
-                                switch($tesis->estado) {
-                                    case 'pendiente': $badgeClass = 'warning'; break;
-                                    case 'en_progreso': $badgeClass = 'info'; break;
-                                    case 'completado': $badgeClass = 'success'; break;
-                                    case 'rechazado': $badgeClass = 'danger'; break;
-                                }
-                            @endphp
-                            <span class="badge badge-{{ $badgeClass }}">
+                            <span class="badge badge-{{ [
+                                'pendiente' => 'warning',
+                                'en_progreso' => 'info',
+                                'completado' => 'success',
+                                'rechazado' => 'danger',
+                            ][$tesis->estado] ?? 'secondary' }}">
                                 {{ ucfirst(str_replace('_', ' ', $tesis->estado)) }}
                             </span>
                         </dd>

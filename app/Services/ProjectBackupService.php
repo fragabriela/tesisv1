@@ -616,6 +616,18 @@ class ProjectBackupService
      */
     public function restoreBackupToContainer(Tesis $tesis, ProjectBackup $backup): bool
     {
+        if (($tesis->project_config['deployment_type'] ?? null) === 'laragon') {
+            $database = $tesis->project_config['database_name'] ??
+                str_replace('-', '_', $tesis->project_config['project_name'] ?? '');
+            $databaseService = app(ProjectDatabaseService::class);
+            if ($tesis->project_config['custom_env'] ?? false) {
+                $databaseService = $databaseService->forEnvironment(file_get_contents($tesis->project_config['project_path'].'/.env'));
+            }
+            $databaseService->restoreBackup(
+                storage_path('app/'.$backup->file_path), $database
+            );
+            return true;
+        }
         try {
             // Para archivos temporales, usar ruta directa
             if ($backup->is_temporary ?? false) {
@@ -749,6 +761,11 @@ class ProjectBackupService
         if (empty($tesis->container_id)) {
             Log::error('No hay container_id para restaurar la base de datos');
             return false;
+        }
+
+        if (($tesis->project_config['deployment_type'] ?? null) === 'docker') {
+            app(DockerProjectService::class)->restoreSql($tesis->project_config, $sqlFile);
+            return true;
         }
         
         try {
