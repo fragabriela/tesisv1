@@ -49,8 +49,12 @@ class DocumentoController extends Controller
         $request->validate([
             'titulo' => 'nullable|string|max:255',
             'tesis_id' => 'required|exists:tesis,id',
-            'archivo_word' => 'nullable|file|mimes:doc,docx|max:10240',
+            'archivo_word' => 'nullable|file|mimes:doc,docx|max:51200',
             'descripcion' => 'nullable|string|max:1000',
+        ], [
+            'archivo_word.file' => 'El archivo seleccionado no es válido.',
+            'archivo_word.mimes' => 'El archivo debe estar en formato DOC o DOCX.',
+            'archivo_word.max' => 'El archivo Word no debe superar los 50 MB.',
         ]);
 
         try {
@@ -342,17 +346,13 @@ class DocumentoController extends Controller
                 $user = auth()->user();
                 $actions = '';
                 
-                // Solo admin, coordinador y el alumno/tutor propietario pueden editar
-                if ($user->hasRole(['administrador', 'coordinador']) || 
-                    ($user->hasRole('alumno') && $user->alumno && $user->alumno->id == $documento->alumno_id) ||
-                    ($user->hasRole('tutor') && $user->tutor && $user->tutor->id == $documento->tutor_id)) {
+                if ($user->can('editar documentos')) {
                     $actions .= '<a href="' . route('documento.edit', $documento) . '" class="btn btn-sm btn-primary" title="Editar">
                             <i class="fas fa-edit"></i>
                         </a>';
                 }
                 
-                // Solo admin y coordinador pueden eliminar
-                if ($user->hasRole(['administrador', 'coordinador'])) {
+                if ($user->can('eliminar documentos')) {
                     $actions .= '<button class="btn btn-sm btn-danger eliminar-documento" onclick="eliminarDocumento(' . $documento->id . ')" title="Eliminar">
                             <i class="fas fa-trash"></i>
                         </button>';

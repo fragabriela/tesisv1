@@ -116,6 +116,7 @@ class UserSeeder extends Seeder
                 'ver documentos',
                 'crear documentos',
                 'editar documentos',
+                'eliminar documentos',
                 'exportar documentos',
                 'ver proyectos',
                 'crear proyectos',
@@ -132,7 +133,9 @@ class UserSeeder extends Seeder
                 'ver tesis',
                 'editar tesis',
                 'ver documentos',
+                'crear documentos',
                 'editar documentos',
+                'eliminar documentos',
                 'ver proyectos',
             ]);
         }
@@ -144,7 +147,9 @@ class UserSeeder extends Seeder
                 'ver tesis',
                 'editar tesis',
                 'ver documentos',
+                'crear documentos',
                 'editar documentos',
+                'eliminar documentos',
                 'ver proyectos',
                 'crear proyectos',
                 'editar proyectos',

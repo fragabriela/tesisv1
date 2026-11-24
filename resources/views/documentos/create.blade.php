@@ -119,7 +119,7 @@
                                     </div>
                                 </div>
                                 <small class="form-text text-muted">
-                                    Formatos soportados: DOC, DOCX. Tamaño máximo: 10MB.
+                                    Formatos soportados: DOC, DOCX. Tamaño máximo: 50MB.
                                     Si carga un archivo, el contenido se convertirá automáticamente para edición en línea.
                                 </small>
                                 @error('archivo_word')
