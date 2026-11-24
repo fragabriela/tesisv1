@@ -57,14 +57,20 @@ class ProyectosPermissionSeeder extends Seeder
         if (in_array('profesor', $existingRoles) || Role::where('name', 'profesor')->exists()) {
             $profesorRole = Role::findByName('profesor');
             $profesorPermisos = array_intersect($existingPermissions, ['ver proyectos', 'configurar proyectos']);
-            $profesorRole->syncPermissions($profesorPermisos);
+            $documentosPermisos = Permission::whereIn('name', [
+                'ver documentos',
+                'crear documentos',
+                'editar documentos',
+                'eliminar documentos',
+            ])->pluck('name')->toArray();
+            $profesorRole->givePermissionTo(array_merge($profesorPermisos, $documentosPermisos));
             $this->command->info("Permisos asignados al rol 'profesor'");
         }
         
         if (in_array('estudiante', $existingRoles) || Role::where('name', 'estudiante')->exists()) {
             $estudianteRole = Role::findByName('estudiante');
             $estudiantePermisos = array_intersect($existingPermissions, ['ver proyectos']);
-            $estudianteRole->syncPermissions($estudiantePermisos);
+            $estudianteRole->givePermissionTo($estudiantePermisos);
             $this->command->info("Permisos asignados al rol 'estudiante'");
         }// También podemos crear un nuevo rol específico para gestionar proyectos
         if (!Role::where('name', 'gestor_proyectos')->exists()) {

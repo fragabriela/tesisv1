@@ -40,7 +40,7 @@
 @section('content')
 <div class="row">
     <!-- Panel del Editor -->
-    <div class="col-md-8" id="editor-panel">
+    <div class="col-12" id="editor-panel">
         <div class="card">
             <div class="card-header">
                 <h3 class="card-title">
@@ -62,7 +62,7 @@
     </div>
 
     <!-- Panel de Comentarios -->
-    <div class="col-md-4" id="comentarios-panel">
+    <div class="col-md-4" id="comentarios-panel" style="display: none;">
         <div class="card">
             <div class="card-header">
                 <h3 class="card-title">
@@ -218,18 +218,20 @@
         }
         
         #comentarios-panel {
-            max-height: 80vh;
+            max-height: calc(100vh - 190px);
             overflow-y: auto;
         }
         
-        .card-body {
-            max-height: 70vh;
+        #comentarios-panel > .card > .card-body {
+            max-height: calc(100vh - 250px);
             overflow-y: auto;
         }
 
         /* Estilos personalizados para TinyMCE */
         .tox-tinymce {
             border: 1px solid #ddd !important;
+            height: calc(100vh - 210px) !important;
+            min-height: 600px;
         }
 
         .tox .tox-editor-header {
@@ -257,7 +259,7 @@
             // Inicializar TinyMCE con configuración avanzada tipo Word (versión gratuita)
             tinymce.init({
                 selector: '#documento-editor',
-                height: 600,
+                height: Math.max(600, window.innerHeight - 210),
                 // language: 'es', // Comentado para usar inglés por defecto
                 plugins: [
                     'advlist', 'autolink', 'lists', 'link', 'image', 'charmap', 'preview',
@@ -602,9 +604,9 @@
             $('#toggle-comentarios').click(function() {
                 $('#comentarios-panel').toggle();
                 if ($('#comentarios-panel').is(':visible')) {
-                    $('#editor-panel').removeClass('col-md-12').addClass('col-md-8');
+                    $('#editor-panel').removeClass('col-12').addClass('col-md-8');
                 } else {
-                    $('#editor-panel').removeClass('col-md-8').addClass('col-md-12');
+                    $('#editor-panel').removeClass('col-md-8').addClass('col-12');
                 }
                 
                 // Redimensionar TinyMCE cuando se cambia el tamaño del panel
